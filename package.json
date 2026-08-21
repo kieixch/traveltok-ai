@@ -2,25 +2,44 @@
   "name": "traveltok-ai",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+  "description": "TravelTok AI - Analytics & AI Content Planner for travel TikTok content",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.19.0",
+    "npm": ">=10"
   },
-  "dependencies": {
-    "next": "16.3.1",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+  "scripts": {
+    "dev": "npm run build:packages && concurrently -k -n web,api,worker -c blue,green,yellow \"npm run dev:web\" \"npm run start:dev -w @traveltok/api\" \"npm run start:worker:dev -w @traveltok/api\"",
+    "dev:web": "npm run dev -w @traveltok/web",
+    "dev:api": "npm run build:packages && npm run start:dev -w @traveltok/api",
+    "dev:worker": "npm run build:packages && npm run start:worker:dev -w @traveltok/api",
+    "build": "npm run build:packages && npm run build -w @traveltok/api && npm run build -w @traveltok/web",
+    "build:packages": "npm run build -w @traveltok/database && npm run build -w @traveltok/ai",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run build:packages && npm run test:e2e -w @traveltok/api",
+    "clean": "npm run clean --workspaces --if-present",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.1",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "concurrently": "^10.0.4",
+    "dotenv": "^17.4.2",
+    "prisma": "^7.9.1",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@nestjs/jwt": "^11.0.2",
+    "bcryptjs": "^3.0.3"
   }
 }

@@ -1,0 +1,33 @@
+npm notice run @traveltok/web@0.1.0 lint
+npm notice run eslint
+
+E:\code\traveltok-ai\apps\web\app\page.tsx
+  155:55  warning  'i' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\code\traveltok-ai\apps\web\components\AppShell.tsx
+  51:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+E:\code\traveltok-ai\apps\web\components\AppShell.tsx:51:5
+  49 |   useEffect(() => {
+  50 |     const hasToken = Boolean(getToken());
+> 51 |     setAuthed(hasToken);
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  52 |     setUser(getStoredUser());
+  53 |     setMenuOpen(false);
+  54 |   }, [pathname]);  react-hooks/set-state-in-effect
+
+✖ 2 problems (1 error, 1 warning)
+
+npm error Lifecycle script `lint` failed with error:
+npm error code 1
+npm error path E:\code\traveltok-ai\apps\web
+npm error workspace @traveltok/web@0.1.0
+npm error location E:\code\traveltok-ai\apps\web
+npm error command failed
+npm error command C:\Windows\system32\cmd.exe /d /s /c eslint

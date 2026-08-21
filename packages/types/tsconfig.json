@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "baseUrl": ".",
+    "paths": {
+      "@traveltok/database": ["../database/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

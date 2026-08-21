@@ -1,0 +1,27 @@
+{
+  "name": "@traveltok/database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prisma client and shared database services for TravelTok AI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.29",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/pg": "^8.15.0",
+    "typescript": "^5.9.0"
+  }
+}

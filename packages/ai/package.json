@@ -1,0 +1,25 @@
+{
+  "name": "@traveltok/ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared AI utilities for TravelTok AI: OpenAI client wrapper, prompts, validation and mock fallbacks",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "openai": "^7.4.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,404 @@
+// TravelTok AI — domain schema.
+// Prisma 7 (prisma-client generator, driver adapter @prisma/adapter-pg).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../packages/database/src/generated"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum ScrapingJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ContentFormat {
+  POV
+  VLOG
+  LISTICLE
+  TUTORIAL
+  REVIEW
+  STORYTELLING
+  CINEMATIC
+  TALKING_HEAD
+  VOICE_OVER
+  BEFORE_AFTER
+  OTHER
+}
+
+enum HookType {
+  QUESTION
+  CURIOSITY
+  SHOCK
+  PROBLEM
+  PROMISE
+  LIST
+  STORY
+  CONTRAST
+  DIRECT_STATEMENT
+  OTHER
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  MIXED
+}
+
+enum TrendType {
+  TOPIC
+  HASHTAG
+  DESTINATION
+  FORMAT
+  HOOK
+}
+
+enum ContentIdeaStatus {
+  IDEA
+  DRAFT
+  SCHEDULED
+  USED
+  ARCHIVED
+}
+
+enum ContentPlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ContentPlanItemStatus {
+  IDEA
+  DRAFT
+  READY
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+// ---------------------------------------------------------------------------
+// Identity & projects
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+  isSeedData   Boolean   @default(false)
+  aiProvider   String    @default("mock")
+  aiModel      String    @default("")
+  projects     Project[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Project {
+  id            String         @id @default(uuid())
+  name          String
+  description   String?
+  niche         String?
+  createdById   String
+  createdBy     User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  scrapingJobs  ScrapingJob[]
+  videos        Video[]
+  trends        Trend[]
+  contentIdeas  ContentIdea[]
+  contentPlans  ContentPlan[]
+  embeddings    Embedding[]
+  isSeedData    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([createdById])
+}
+
+model ScrapingJob {
+  id               String           @id @default(uuid())
+  projectId        String
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  keyword          String?
+  hashtag          String?
+  maxResults       Int?
+  status           ScrapingJobStatus @default(QUEUED)
+  apifyRunId       String?
+  totalResults     Int?
+  processedResults Int              @default(0)
+  errorMessage     String?
+  isSeedData       Boolean          @default(false)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Content — creators, videos, metrics, hashtags
+// ---------------------------------------------------------------------------
+
+model Creator {
+  id          String   @id @default(uuid())
+  externalId  String   @unique
+  username    String?
+  displayName String?
+  profileUrl  String?
+  avatarUrl   String?
+  followers   Int?
+  following   Int?
+  totalLikes  BigInt?
+  videoCount  Int?
+  videos      Video[]
+  isSeedData  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Video {
+  id           String            @id @default(uuid())
+  externalId   String            @unique
+  creatorId    String
+  creator      Creator           @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  projectId    String
+  project      Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  url          String?
+  thumbnailUrl String?
+  caption      String?
+  description  String?
+  duration     Int?
+  publishedAt  DateTime?
+  scrapedAt    DateTime?         @default(now())
+  musicName    String?
+  location     String?
+  metrics      VideoMetric[]
+  hashtags     VideoHashtag[]
+  analyses     ContentAnalysis[]
+  isSeedData   Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([externalId])
+  @@index([creatorId])
+  @@index([projectId])
+  @@index([projectId, publishedAt])
+  @@index([projectId, scrapedAt])
+  @@index([publishedAt])
+  @@index([scrapedAt])
+}
+
+// One row per snapshot; historical metrics are never overwritten.
+model VideoMetric {
+  id             String   @id @default(uuid())
+  videoId        String
+  video          Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  views          BigInt
+  likes          BigInt
+  comments       BigInt
+  shares         BigInt
+  saves          BigInt?
+  engagementRate Float?
+  collectedAt    DateTime @default(now())
+  isSeedData     Boolean  @default(false)
+
+  @@unique([videoId, collectedAt])
+  @@index([videoId])
+  @@index([collectedAt])
+}
+
+model Hashtag {
+  id             String         @id @default(uuid())
+  name           String
+  normalizedName String         @unique
+  videos         VideoHashtag[]
+  isSeedData     Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+
+  @@index([name])
+}
+
+model VideoHashtag {
+  videoId   String
+  hashtagId String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  hashtag   Hashtag  @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@id([videoId, hashtagId])
+  @@index([hashtagId])
+}
+
+// ---------------------------------------------------------------------------
+// AI analysis & planning
+// ---------------------------------------------------------------------------
+
+model ContentAnalysis {
+  id               String         @id @default(uuid())
+  videoId          String
+  video            Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  topic            String?
+  subTopic         String?
+  destination      String?
+  contentFormat    ContentFormat?
+  hookType         HookType?
+  hookText         String?
+  ctaType          String?
+  sentiment        Sentiment?
+  targetAudience   String?
+  estimatedIntent  String?
+  aiScore          Float?
+  analysisVersion  String         @default("1")
+  model            String?
+  rawJson          Json?
+  isSeedData       Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([videoId])
+  @@index([topic])
+  @@index([contentFormat])
+  @@index([destination])
+}
+
+model Trend {
+  id               String    @id @default(uuid())
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  keyword          String
+  type             TrendType
+  trendScore       Float?
+  growthRate       Float?
+  engagementScore  Float?
+  frequencyScore   Float?
+  recencyScore     Float?
+  opportunityScore Float?
+  periodStart      DateTime
+  periodEnd        DateTime
+  isSeedData       Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([keyword])
+  @@index([periodStart])
+}
+
+model ContentIdea {
+  id                String            @id @default(uuid())
+  projectId         String
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title             String
+  topic             String?
+  destination       String?
+  format            ContentFormat?
+  hook              String?
+  concept           String?
+  targetAudience    String?
+  cta               String?
+  estimatedDuration Int?
+  opportunityScore  Float?
+  aiReasoning       String?
+  script            String?
+  scriptOutline     Json?
+  caption           String?
+  hashtags          String[]
+  generatedBy       String            @default("MANUAL")
+  aiModel           String?
+  rawJson           Json?
+  status            ContentIdeaStatus @default(IDEA)
+  isSeedData        Boolean           @default(false)
+  planItems         ContentPlanItem[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+  @@index([generatedBy])
+}
+
+model ContentPlan {
+  id          String            @id @default(uuid())
+  projectId   String
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  status      ContentPlanStatus @default(DRAFT)
+  generatedBy String            @default("MANUAL")
+  aiModel     String?
+  rawJson     Json?
+  isSeedData  Boolean           @default(false)
+  items       ContentPlanItem[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([projectId])
+}
+
+model ContentPlanItem {
+  id            String               @id @default(uuid())
+  contentPlanId String
+  contentPlan   ContentPlan          @relation(fields: [contentPlanId], references: [id], onDelete: Cascade)
+  contentIdeaId String?
+  contentIdea   ContentIdea?         @relation(fields: [contentIdeaId], references: [id], onDelete: SetNull)
+  scheduledDate DateTime
+  title         String
+  hook          String?
+  script        String?
+  caption       String?
+  hashtags      String?
+  cta           String?
+  format        ContentFormat?
+  status        ContentPlanItemStatus @default(IDEA)
+  generatedBy   String                @default("MANUAL")
+  isSeedData    Boolean               @default(false)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([contentPlanId])
+  @@index([scheduledDate])
+}
+
+// ---------------------------------------------------------------------------
+// Semantic search — one row per indexed entity (video / idea / trend). The
+// vector column is a pgvector `vector(3072)` managed through raw SQL because
+// Prisma cannot write `Unsupported` columns. 3072 matches `gemini-embedding-001`.
+// ---------------------------------------------------------------------------
+
+model Embedding {
+  id         String   @id @default(uuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  entityType String
+  entityId   String
+  content    String
+  model      String
+  dimension  Int      @default(3072)
+  vector     Unsupported("vector(3072)")?
+  isSeedData Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId])
+  @@index([projectId])
+  @@index([entityType])
+}

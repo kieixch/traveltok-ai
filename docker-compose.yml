@@ -1,0 +1,43 @@
+name: traveltok-ai
+
+# Local development infrastructure only.
+# No production secrets are stored here; credentials come from `.env`
+# via ${VAR:-default} substitution (see .env.example at the repo root).
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: traveltok-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-traveltok}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traveltok}
+      POSTGRES_DB: ${POSTGRES_DB:-traveltok_ai}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-traveltok} -d ${POSTGRES_DB:-traveltok_ai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: traveltok-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:
+  redis_data:
