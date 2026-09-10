@@ -1,7 +1,9 @@
 import { getToken } from "./auth";
 import type { ApiEnvelope, ApiErrorPayload } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+// Same-origin by default: the API runs as Next.js route handlers under /api.
+// Set NEXT_PUBLIC_API_URL to point at a standalone API instead.
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "/api").replace(/\/$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -25,7 +27,10 @@ export interface ApiOptions {
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { method = "GET", body, token, query } = options;
 
-  const url = new URL(`${API_URL}${path}`);
+  const sameOrigin = API_URL.startsWith("/");
+  const origin =
+    typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  const url = new URL(`${API_URL}${path}`, sameOrigin ? origin : undefined);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined && value !== null && value !== "") {
@@ -33,6 +38,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       }
     }
   }
+  const fetchTarget = sameOrigin ? `${url.pathname}${url.search}` : url.toString();
 
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -41,7 +47,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
   let response: Response;
   try {
-    response = await fetch(url.toString(), {
+    response = await fetch(fetchTarget, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -49,7 +55,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     });
   } catch {
     throw new ApiError(
-      `Cannot reach API at ${API_URL}. Is the backend running?`,
+      `Cannot reach API at ${fetchTarget}. Is the backend running?`,
       0,
       "NETWORK_ERROR",
     );

@@ -4,12 +4,19 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:packages --prefix ../.. && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.1",
+    "@traveltok/ai": "0.1.0",
+    "@traveltok/database": "0.1.0",
+    "@traveltok/types": "0.1.0",
+    "apify-client": "^2.12.4",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.0.10",
     "next": "16.3.1",
     "next-themes": "^0.4.6",
     "react": "19.2.8",
