@@ -4,16 +4,18 @@ The full application (web + API) now runs as one Next.js app under `apps/web`.
 There is no separate NestJS backend or queue worker: scraping is either synchronous
 (`SCRAPING_MODE=mock`) or driven by an Apify webhook back to this same app.
 
-`vercel.json` at the repository root handles the monorepo:
-`rootDirectory: "apps/web"`, and `buildCommand: "npm run build"` builds the
-`@traveltok/database` + `@traveltok/ai` workspace packages before `next build`.
+`vercel.json` at the repository root handles the monorepo build:
+`buildCommand: "npm run build"` compiles the `@traveltok/database` + `@traveltok/ai`
+workspace packages before `next build`. Note: `rootDirectory` is **not** accepted in
+`vercel.json` anymore, so set it in Project Settings (see step 1).
 
 ## 1. One-click import
 
 1. Push this repository to GitHub.
-2. In Vercel: **Add New Project → Import** the repo. Vercel reads `vercel.json`
-   automatically (framework = Next.js, root = `apps/web`).
-3. No build command / output directory changes needed.
+2. In Vercel: **Add New Project → Import** the repo.
+3. In **Settings → General → Root Directory**, set it to `apps/web`
+   (then **Deploy**). This is required — the schema for `vercel.json` no longer
+   accepts a `rootDirectory` property.
 
 > A plan with a credit card is **not** required. The free (Hobby) tier is enough;
 > it also supports the Apify webhook to `/api/scraping-jobs/[id]/complete`.
