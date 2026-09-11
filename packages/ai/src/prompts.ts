@@ -117,6 +117,29 @@ export function buildContentIdeaGeneratorUserPrompt(
     `Number of ideas to generate: ${input.count}`,
     `Seed (for determinism): ${input.randomness}`,
   ];
+
+  if (input.references && input.references.length > 0) {
+    lines.push("");
+    lines.push(
+      "The following reference videos have already performed well. Use them as inspiration — "
+      + "base each idea on one of these (mix formats/hooks, keep the winning topics but make the idea your own):",
+    );
+    input.references.forEach((r, i) => {
+      const parts = [`${i + 1}. ${r.caption ?? "(no caption)"}`];
+      if (r.creatorUsername) parts.push(`by ${r.creatorUsername}`);
+      if (r.destination) parts.push(`destination: ${r.destination}`);
+      if (r.topic) parts.push(`topic: ${r.topic}`);
+      if (r.contentFormat) parts.push(`format: ${r.contentFormat}`);
+      if (r.hookType) parts.push(`hook: ${r.hookType}`);
+      if (r.hookText) parts.push(`hook-line: "${r.hookText}"`);
+      if (r.hashtags.length > 0) parts.push(`hashtags: ${r.hashtags.join(", ")}`);
+      if (r.views != null) parts.push(`views: ${r.views}`);
+      if (r.likes != null) parts.push(`likes: ${r.likes}`);
+      if (r.summary) parts.push(`insight: ${r.summary}`);
+      lines.push("  " + parts.join(" | "));
+    });
+  }
+
   return lines.join("\n");
 }
 

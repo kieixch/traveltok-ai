@@ -57,6 +57,22 @@ class ContentIdeasService {
         where,
         ...paginationParams(page, pageSize),
         orderBy: { createdAt: "desc" },
+        include: {
+          sourceVideo: {
+            select: {
+              id: true,
+              url: true,
+              caption: true,
+              thumbnailUrl: true,
+              creator: { select: { username: true } },
+              metrics: {
+                orderBy: { collectedAt: "desc" },
+                take: 1,
+                select: { views: true, likes: true },
+              },
+            },
+          },
+        },
       }),
       prisma.contentIdea.count({ where }),
     ]);

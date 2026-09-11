@@ -121,6 +121,23 @@ export interface ContentIdeaGeneratorInput {
   randomness: string;
   /** Language for the generated text (e.g. "English", "Bahasa Indonesia"). */
   language?: string;
+  /** Analyzed scraped videos to use as references for ideas. */
+  references?: ContentVideoReference[];
+}
+
+export interface ContentVideoReference {
+  videoId: string;
+  caption: string | null;
+  creatorUsername: string | null;
+  destination: string | null;
+  topic: string | null;
+  contentFormat: ContentFormat | null;
+  hookType: HookType | null;
+  hookText: string | null;
+  summary: string | null;
+  views: number | null;
+  likes: number | null;
+  hashtags: string[];
 }
 
 export interface ScriptSection {

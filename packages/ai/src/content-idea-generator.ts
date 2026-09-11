@@ -155,6 +155,7 @@ const AUDIENCES = [
 export class MockContentIdeaGenerator implements ContentIdeaGenerator {
   async generate(input: ContentIdeaGeneratorInput): Promise<ContentIdeaDraft[]> {
     const count = Math.min(Math.max(1, input.count), 10);
+    const refs = input.references && input.references.length > 0 ? input.references : [];
     const destinations = input.topDestinations.length > 0
       ? input.topDestinations
       : ["indonesia", "bali", "yogyakarta", "labuan bajo", "nusa penida"];
@@ -176,9 +177,10 @@ export class MockContentIdeaGenerator implements ContentIdeaGenerator {
     const ideas: ContentIdeaDraft[] = [];
 
     for (let i = 0; i < count; i += 1) {
+      const ref = refs[i % Math.max(1, refs.length)];
       const template = templatePool[(seed + i) % templatePool.length];
-      const dest = destinations[(seed + i) % destinations.length];
-      const hashtag = hashtags[(seed + i) % hashtags.length];
+      const dest = ref?.destination ?? destinations[(seed + i) % destinations.length];
+      const hashtag = ref?.hashtags[0] ?? hashtags[(seed + i) % hashtags.length];
       const audience = AUDIENCES[(seed + i) % AUDIENCES.length];
       const cta = CTAS[(seed + i) % CTAS.length];
       const opportunityScore = Math.min(
@@ -188,18 +190,20 @@ export class MockContentIdeaGenerator implements ContentIdeaGenerator {
 
       ideas.push({
         title: template.title(dest, hashtag),
-        topic: `${cap(dest)} travel`,
+        topic: ref?.topic ?? `${cap(dest)} travel`,
         destination: cap(dest),
-        format: template.format,
+        format: ref?.contentFormat ?? template.format,
         hook: template.hook(dest, hashtag),
-        hookType: template.hookType,
+        hookType: ref?.hookType ?? template.hookType,
         concept: template.concept(dest, hashtag),
         targetAudience: audience,
         cta,
         estimatedDuration: [30, 45, 60][(seed + i) % 3],
         opportunityScore,
-        aiReasoning: `High fit with trending topic "${hashtag}" and format strength in ${template.format.toLowerCase()}; opportunity ${opportunityScore.toFixed(0)}/100.`,
-        hashtags: [hashtag, `travel${dest.replace(/\s+/g, "")}`.toLowerCase(), "traveltok"],
+        aiReasoning: ref
+          ? `Derived from a high-performing reference video by ${ref.creatorUsername ?? "unknown"}: "${ref.caption?.slice(0, 80) ?? ref.topic ?? "travel content"}" — adapting its winning angle (${ref.contentFormat ?? template.format} / ${ref.hookType ?? template.hookType}) while keeping the ${cap(dest)} topic.`
+          : `High fit with trending topic "${hashtag}" and format strength in ${template.format.toLowerCase()}; opportunity ${opportunityScore.toFixed(0)}/100.`,
+        hashtags: [...new Set([hashtag, `travel${dest.replace(/\s+/g, "")}`.toLowerCase(), "traveltok"])].slice(0, 6),
       });
     }
 

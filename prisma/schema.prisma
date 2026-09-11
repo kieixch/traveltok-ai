@@ -194,6 +194,7 @@ model Video {
   metrics      VideoMetric[]
   hashtags     VideoHashtag[]
   analyses     ContentAnalysis[]
+  sourceIdeas  ContentIdea[]    @relation("ContentIdeaSource")
   isSeedData   Boolean           @default(false)
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
@@ -324,6 +325,8 @@ model ContentIdea {
   aiModel           String?
   rawJson           Json?
   status            ContentIdeaStatus @default(IDEA)
+  sourceVideoId     String?
+  sourceVideo       Video?            @relation("ContentIdeaSource", fields: [sourceVideoId], references: [id], onDelete: SetNull)
   isSeedData        Boolean           @default(false)
   planItems         ContentPlanItem[]
   createdAt         DateTime          @default(now())
@@ -332,6 +335,7 @@ model ContentIdea {
   @@index([projectId])
   @@index([status])
   @@index([generatedBy])
+  @@index([sourceVideoId])
 }
 
 model ContentPlan {

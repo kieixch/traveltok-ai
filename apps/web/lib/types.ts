@@ -168,6 +168,15 @@ export interface Trend {
   createdAt: string;
 }
 
+export interface ContentIdeaSourceVideo {
+  id: string;
+  url: string | null;
+  caption: string | null;
+  thumbnailUrl: string | null;
+  creator: { username: string | null };
+  metrics: { views: number; likes: number }[];
+}
+
 export interface ContentIdea {
   id: string;
   projectId: string;
@@ -189,6 +198,8 @@ export interface ContentIdea {
   generatedBy: string;
   aiModel: string | null;
   status: string;
+  sourceVideoId: string | null;
+  sourceVideo: ContentIdeaSourceVideo | null;
   createdAt: string;
   updatedAt: string;
 }
