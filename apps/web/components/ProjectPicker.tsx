@@ -313,7 +313,9 @@ export function ProjectPicker({
             <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-300">{job.totalResults ?? 0} videos saved.</p>
           )}
           {job && job.status === "FAILED" && (
-            <Alert kind="error">Scraping gagal. Coba lagi dengan hasil yang lebih sedikit atau parameter lain.</Alert>
+            <Alert kind="error">
+              Scraping gagal: {job.errorMessage ?? "Coba lagi dengan hasil yang lebih sedikit atau parameter lain."}
+            </Alert>
           )}
           {scrapeError && <Alert kind="error">{scrapeError}</Alert>}
         </div>
