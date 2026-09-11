@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { setProjectId } from "@/lib/auth";
 import { friendlyError } from "@/lib/friendlyError";
 import type { Paginated, Project } from "@/lib/types";
-import { Dropdown, type DropdownOption, Label, Spinner } from "./ui";
+import { Dropdown, type DropdownOption, Label } from "./ui";
 
 const ALL = "";
 
@@ -63,8 +63,8 @@ export function ProjectSelect({
         options={options}
         placeholder={loading ? "Loading…" : "Select project…"}
         disabled={loading}
+        loading={loading}
       />
-      {loading && <Spinner className="mt-1 h-3 w-3 text-slate-400" />}
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   );

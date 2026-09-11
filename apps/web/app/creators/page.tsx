@@ -14,6 +14,7 @@ import {
   Input,
   Label,
   PageHeader,
+  Pagination,
   Spinner,
 } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -283,32 +284,15 @@ function CreatorsInner() {
                 </table>
               </div>
 
-              {totalPages > 1 && (
-                <div className="mt-4 flex items-center justify-between">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-slate-400 dark:text-slate-500">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    Next
-                  </Button>
-                </div>
-              )}
-            </>
-          ) : (
-            <EmptyState message="No creators found. Scrape videos first to populate this list." />
+              <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  className="mt-4"
+                />
+              </>
+            ) : (
+              <EmptyState message="No creators found. Scrape videos first to populate this list." />
           )}
         </div>
       </Card>

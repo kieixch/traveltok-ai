@@ -14,6 +14,7 @@ import {
   EmptyState,
   Input,
   Label,
+  Pagination,
   Spinner,
   StatusBadge,
 } from "@/components/ui";
@@ -44,7 +45,15 @@ function VideoThumb({
   );
 }
 
-function IdeaCard({ idea, onDeleted }: { idea: ContentIdea; onDeleted: () => void }) {
+function IdeaCard({
+  idea,
+  onDeleted,
+  inlineDropdown = false,
+}: {
+  idea: ContentIdea;
+  onDeleted: () => void;
+  inlineDropdown?: boolean;
+}) {
   const [busy, setBusy] = useState<"script" | "caption" | "delete" | null>(null);
   const [language, setLanguage] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -187,6 +196,7 @@ function IdeaCard({ idea, onDeleted }: { idea: ContentIdea; onDeleted: () => voi
           id="idea-translate-language"
           value={language}
           onChange={setLanguage}
+          portal={!inlineDropdown}
           className="w-40"
           options={[
             { value: "", label: "Auto (English)" },
@@ -271,9 +281,7 @@ interface GetIdeasResponse {
 }
 
 function GetIdeasTab({ projectId }: { projectId: string | null }) {
-  const [count, setCount] = useState(5);
-  const [generated, setGenerated] = useState<ContentIdea[] | null>(null);
-  const [getting, setGetting] = useState(false);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -282,7 +290,7 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
 
   const videosPath = projectId
-    ? `/videos?projectId=${projectId}&pageSize=60&sort=scrapedAt&order=desc`
+    ? `/videos?projectId=${projectId}&page=${page}&pageSize=20&sort=scrapedAt&order=desc`
     : null;
   const analyzedPath = projectId ? `/projects/${projectId}/analyzed-videos` : null;
 
@@ -312,7 +320,7 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
     if (!videos.data) return;
     const ids = videos.data.items.filter((v) => !analyzedMap.has(v.id)).map((v) => v.id).slice(0, 20);
     if (ids.length === 0) {
-      setSuccess("Semua video sudah dianalisis.");
+      setSuccess("Semua video di halaman ini sudah dianalisis.");
       return;
     }
     setAnalyzingAll(true);
@@ -333,30 +341,6 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
     }
   };
 
-  const getIdeas = async () => {
-    if (!projectId) return;
-    setGetting(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const result = await api<GetIdeasResponse>("/content-ideas/generate-from-videos", {
-        method: "POST",
-        body: { projectId, count },
-      });
-      setGenerated(result.ideas);
-      setSuccess(`Berhasil membuat ${result.ideas.length} ide baru dari video yang dianalisis.`);
-      await analyzed.refresh();
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setGetting(false);
-    }
-  };
-
-  const removeGenerated = (id: string) => {
-    setGenerated((list) => list?.filter((idea) => idea.id !== id) ?? null);
-  };
-
   const items = videos.data?.items ?? [];
   const analyzedCount = items.filter((v) => analyzedMap.has(v.id)).length;
 
@@ -374,28 +358,13 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="w-24">
-              <Label htmlFor="getideas-count">Ideas</Label>
-              <Input
-                id="getideas-count"
-                type="number"
-                min={1}
-                max={10}
-                value={count}
-                onChange={(e) => setCount(Number(e.target.value))}
-              />
-            </div>
-            <Button variant="secondary" onClick={() => void analyzeAll()} loading={analyzingAll}>
-              <ScrapeIcon style={{ width: 16, height: 16 }} />
-              Analyze all
-            </Button>
             <Button
-              onClick={() => void getIdeas()}
-              loading={getting}
+              onClick={() => void analyzeAll()}
+              loading={analyzingAll}
               disabled={!projectId || items.length === 0}
             >
-              <SparklesIcon style={{ width: 16, height: 16 }} />
-              Get ideas
+              <ScrapeIcon style={{ width: 16, height: 16 }} />
+              Analyze videos
             </Button>
           </div>
         </div>
@@ -516,21 +485,15 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
             })}
           </div>
         )}
+        <Pagination
+          page={videos.data?.page ?? 1}
+          totalPages={videos.data?.totalPages ?? 1}
+          totalItems={videos.data?.total}
+          itemLabel="videos"
+          onPageChange={setPage}
+          className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5"
+        />
       </Card>
-
-      {generated && generated.length > 0 && (
-        <div>
-          <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-            {generated.length} new idea{generated.length === 1 ? "" : "s"} from your videos — also
-            saved to the Content Ideas list.
-          </p>
-          <div className="space-y-4">
-            {generated.map((idea) => (
-              <IdeaCard key={idea.id} idea={idea} onDeleted={() => removeGenerated(idea.id)} />
-            ))}
-          </div>
-        </div>
-      )}
 
       <VideoIdeasDialog
         key={selectedVideo?.id ?? "none"}
@@ -564,6 +527,7 @@ function VideoIdeasDialog({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [language, setLanguage] = useState("");
 
   useEffect(() => {
     const el = dialogRef.current;
@@ -585,7 +549,12 @@ function VideoIdeasDialog({
     try {
       const generatedIdea = await api<GetIdeasResponse>("/content-ideas/generate-from-videos", {
         method: "POST",
-        body: { projectId, videoIds: [video.id], count: 1 },
+        body: {
+          projectId,
+          videoIds: [video.id],
+          count: 1,
+          ...(language ? { language } : {}),
+        },
       });
       await result.refresh();
       setSuccess(
@@ -679,16 +648,29 @@ function VideoIdeasDialog({
                   Generated ideas that reference this video. Scripts adapt its proven angle.
                 </p>
               </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={generating}
-                disabled={!projectId}
-                onClick={() => void generateForVideo()}
-              >
-                <SparklesIcon style={{ width: 14, height: 14 }} />
-                Generate ideas
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Dropdown
+                  id="dialog-generate-language"
+                  value={language}
+                  onChange={setLanguage}
+                  portal={false}
+                  className="w-36"
+                  options={[
+                    { value: "", label: "English" },
+                    ...CONTENT_LANGUAGES.map((lang): DropdownOption => ({ value: lang, label: lang })),
+                  ]}
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={generating}
+                  disabled={!projectId}
+                  onClick={() => void generateForVideo()}
+                >
+                  <SparklesIcon style={{ width: 14, height: 14 }} />
+                  Generate ideas
+                </Button>
+              </div>
             </div>
 
             {error && (
@@ -707,7 +689,12 @@ function VideoIdeasDialog({
             ) : ideas.length > 0 ? (
               <div className="space-y-3">
                 {ideas.map((idea) => (
-                  <IdeaCard key={idea.id} idea={idea} onDeleted={() => deleteIdea(idea.id)} />
+                  <IdeaCard
+                    key={idea.id}
+                    idea={idea}
+                    onDeleted={() => deleteIdea(idea.id)}
+                    inlineDropdown
+                  />
                 ))}
               </div>
             ) : (
@@ -737,14 +724,21 @@ function IdeasInner() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
+  const [ideasPage, setIdeasPage] = useState(1);
 
   const ideas = useApi<Paginated<ContentIdea>>(
     projectId
-      ? `/content-ideas?projectId=${projectId}&pageSize=50`
-      : `/content-ideas?pageSize=50`,
+      ? `/content-ideas?projectId=${projectId}&page=${ideasPage}&pageSize=20`
+      : `/content-ideas?page=${ideasPage}&pageSize=20`,
   );
 
-  const refresh = () => void ideas.refresh();
+  const deleteIdea = () => {
+    if (ideas.data && ideas.data.items.length === 1 && ideasPage > 1) {
+      setIdeasPage((p) => p - 1);
+    } else {
+      void ideas.refresh();
+    }
+  };
 
   const generate = async () => {
     if (!projectId) return;
@@ -790,7 +784,13 @@ function IdeasInner() {
               : "Analyze scraped videos and turn them into content idea references."}
           </p>
         </div>
-        <ProjectSelect projectId={projectId} onChange={setProjectId} />
+        <ProjectSelect
+          projectId={projectId}
+          onChange={(id) => {
+            setProjectId(id);
+            setIdeasPage(1);
+          }}
+        />
       </div>
 
       {tab === "getIdeas" ? (
@@ -859,8 +859,16 @@ function IdeasInner() {
                   {ideas.data.total} idea{ideas.data.total === 1 ? "" : "s"}
                 </p>
                 {ideas.data.items.map((idea) => (
-                  <IdeaCard key={idea.id} idea={idea} onDeleted={refresh} />
+                  <IdeaCard key={idea.id} idea={idea} onDeleted={deleteIdea} />
                 ))}
+                <Pagination
+                  page={ideas.data.page}
+                  totalPages={ideas.data.totalPages}
+                  totalItems={ideas.data.total}
+                  itemLabel="ideas"
+                  onPageChange={setIdeasPage}
+                  className="pt-4"
+                />
               </div>
             ) : (
               <EmptyState message="No ideas yet. Generate your first batch above." />

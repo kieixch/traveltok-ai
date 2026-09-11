@@ -55,6 +55,83 @@ export function Button({
   );
 }
 
+export function Pagination({
+  page,
+  totalPages,
+  totalItems,
+  itemLabel = "items",
+  onPageChange,
+  className = "",
+}: {
+  page: number;
+  totalPages: number;
+  totalItems?: number;
+  itemLabel?: string;
+  onPageChange: (page: number) => void;
+  className?: string;
+}) {
+  const [draft, setDraft] = useState("");
+
+  if (totalPages <= 1) return null;
+
+  const goToDraft = () => {
+    const value = Number(draft);
+    if (!Number.isNaN(value)) {
+      onPageChange(Math.max(1, Math.min(totalPages, Math.floor(value))));
+    }
+    setDraft("");
+  };
+
+  return (
+    <div className={`flex flex-wrap items-center justify-between gap-3 ${className}`}>
+      <p className="text-sm text-slate-500 dark:text-slate-400">
+        {totalItems != null
+          ? `${totalItems} ${itemLabel} · page ${page} of ${totalPages}`
+          : `Page ${page} of ${totalPages}`}
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-slate-400 dark:text-slate-500">Go to</span>
+          <input
+            type="number"
+            min={1}
+            max={totalPages}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                goToDraft();
+              }
+            }}
+            onBlur={goToDraft}
+            placeholder={String(page)}
+            className="w-16 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Input({
   className = "",
   ...rest
@@ -109,6 +186,8 @@ export function Dropdown({
   options,
   placeholder = "Select…",
   disabled = false,
+  loading = false,
+  portal = true,
   className = "",
   id,
 }: {
@@ -117,6 +196,9 @@ export function Dropdown({
   options: readonly DropdownOption[];
   placeholder?: string;
   disabled?: boolean;
+  loading?: boolean;
+  /** Render the menu inside the trigger container (needed inside <dialog> top layer). */
+  portal?: boolean;
   className?: string;
   id?: string;
 }) {
@@ -137,14 +219,14 @@ export function Dropdown({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !portal) return;
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
     return () => {
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [open, measure]);
+  }, [open, portal, measure]);
 
   useEffect(() => {
     if (!open) return;
@@ -165,14 +247,14 @@ export function Dropdown({
   }, [open]);
 
   return (
-    <div className={className}>
+    <div className={`${portal ? "" : "relative"} ${className}`}>
       <button
         ref={triggerRef}
         id={id}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        disabled={disabled}
+        disabled={disabled || loading}
         onClick={() => {
           if (open) {
             setOpen(false);
@@ -186,19 +268,57 @@ export function Dropdown({
         <span className={`truncate ${selected ? "" : "text-slate-400 dark:text-slate-500"}`}>
           {selected ? selected.label : placeholder}
         </span>
-        <ChevronDownIcon
-          style={{ width: 16, height: 16 }}
-          className={`shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${open ? "rotate-180" : ""}`}
-        />
+        {loading ? (
+          <Spinner className="h-4 w-4 shrink-0 text-slate-400" />
+        ) : (
+          <ChevronDownIcon
+            style={{ width: 16, height: 16 }}
+            className={`shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${open ? "rotate-180" : ""}`}
+          />
+        )}
       </button>
       {open &&
-        pos &&
-        createPortal(
+        (portal ? (
+          pos &&
+          createPortal(
+            <div
+              ref={menuRef}
+              role="listbox"
+              style={{ top: pos.top, left: pos.left, width: pos.width }}
+              className="fixed z-[120] max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-200/50 dark:border-white/10 dark:bg-[#0b1120] dark:shadow-black/50"
+            >
+              {options.map((o) => {
+                const active = o.value === value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    disabled={o.disabled}
+                    onClick={() => {
+                      onChange(o.value);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                      active
+                        ? "bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                        : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
+                    } disabled:cursor-not-allowed disabled:opacity-40`}
+                  >
+                    <span className="truncate">{o.label}</span>
+                    {active && <CheckMini />}
+                  </button>
+                );
+              })}
+            </div>,
+            document.body,
+          )
+        ) : (
           <div
             ref={menuRef}
             role="listbox"
-            style={{ top: pos.top, left: pos.left, width: pos.width }}
-            className="fixed z-[120] max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-200/50 dark:border-white/10 dark:bg-[#0b1120] dark:shadow-black/50"
+            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-200/50 dark:border-white/10 dark:bg-[#0b1120] dark:shadow-black/50"
           >
             {options.map((o) => {
               const active = o.value === value;
@@ -224,9 +344,8 @@ export function Dropdown({
                 </button>
               );
             })}
-          </div>,
-          document.body,
-        )}
+          </div>
+        ))}
     </div>
   );
 }

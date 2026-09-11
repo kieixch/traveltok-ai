@@ -11,6 +11,7 @@ import {
   Input,
   Label,
   PageHeader,
+  Pagination,
   Spinner,
 } from "@/components/ui";
 import { getProjectId } from "@/lib/auth";
@@ -215,31 +216,14 @@ function VideosInner() {
               </table>
             </div>
 
-            {data.data.totalPages > 1 && (
-              <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white/90 px-5 py-3 backdrop-blur dark:border-white/10 dark:bg-[#0b1120]/90">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {data.data.total} videos · page {data.data.page} of {data.data.totalPages}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.min(data.data!.totalPages, p + 1))}
-                    disabled={page >= data.data.totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              page={data.data.page}
+              totalPages={data.data.totalPages}
+              totalItems={data.data.total}
+              itemLabel="videos"
+              onPageChange={setPage}
+              className="sticky bottom-0 z-10 border-t border-slate-200 bg-white/90 px-5 py-3 backdrop-blur dark:border-white/10 dark:bg-[#0b1120]/90"
+            />
           </>
         ) : (
           <div className="p-5">
