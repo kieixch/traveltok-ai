@@ -8,11 +8,12 @@ import {
   Button,
   Card,
   CardHeader,
+  Dropdown,
+  type DropdownOption,
   EmptyState,
   Input,
   Label,
   PageHeader,
-  Select,
   Spinner,
 } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -171,24 +172,24 @@ function CreatorsInner() {
           </div>
           <div className="w-44">
             <Label htmlFor="creator-sort">Sort by</Label>
-            <Select id="creator-sort" value={sort} onChange={(e) => changeSort(e.target.value)}>
-              {SORTS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
+            <Dropdown
+              id="creator-sort"
+              value={sort}
+              onChange={changeSort}
+              options={SORTS.map((s): DropdownOption => ({ value: s.value, label: s.label }))}
+            />
           </div>
           <div className="w-32">
             <Label htmlFor="creator-order">Order</Label>
-            <Select
+            <Dropdown
               id="creator-order"
               value={order}
-              onChange={(e) => changeOrder(e.target.value as "asc" | "desc")}
-            >
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
-            </Select>
+              onChange={(v) => changeOrder(v as "asc" | "desc")}
+              options={[
+                { value: "desc", label: "Descending" },
+                { value: "asc", label: "Ascending" },
+              ]}
+            />
           </div>
           <Button onClick={apply}>Apply filters</Button>
         </div>

@@ -10,11 +10,12 @@ import {
   Card,
   CardHeader,
   ConfirmDialog,
+  Dropdown,
+  type DropdownOption,
   EmptyState,
   Input,
   Label,
   PageHeader,
-  Select,
   Spinner,
   StatusBadge,
 } from "@/components/ui";
@@ -212,32 +213,26 @@ function PlansInner() {
           </div>
           <div className="w-36">
             <Label htmlFor="plan-posts">Posts per week</Label>
-            <Select
+            <Dropdown
               id="plan-posts"
-              value={postsPerWeek}
-              onChange={(e) => setPostsPerWeek(Number(e.target.value))}
-            >
-              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Select>
+              value={String(postsPerWeek)}
+              onChange={(v) => setPostsPerWeek(Number(v))}
+              options={[1, 2, 3, 4, 5, 6, 7].map(
+                (n): DropdownOption => ({ value: String(n), label: String(n) }),
+              )}
+            />
           </div>
           <div className="w-44">
             <Label htmlFor="plan-language">Language</Label>
-            <Select
+            <Dropdown
               id="plan-language"
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              <option value="">English</option>
-              {CONTENT_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang}
-                </option>
-              ))}
-            </Select>
+              onChange={setLanguage}
+              options={[
+                { value: "", label: "English" },
+                ...CONTENT_LANGUAGES.map((lang): DropdownOption => ({ value: lang, label: lang })),
+              ]}
+            />
           </div>
           <Button onClick={() => void generate()} loading={generating}>
             Generate plan

@@ -29,9 +29,6 @@ export function ScrapingNotification() {
       }, 5000);
       return () => clearTimeout(t);
     }
-    if (job.status === "FAILED" && job.id === dismissed) {
-      setVisible(false);
-    }
   }, [job, dismissed]);
 
   const dismiss = () => {

@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { ChevronDownIcon } from "./icons";
 
 export function Spinner({ className = "" }: { className?: string }) {
   return (
@@ -91,6 +92,113 @@ export function Select({
     >
       {children}
     </select>
+  );
+}
+
+export interface DropdownOption {
+  value: string;
+  label: string;
+  disabled?: boolean;
+}
+
+/** Custom dropdown replacing the native <select> popup with an in-app menu. */
+export function Dropdown({
+  value,
+  onChange,
+  options,
+  placeholder = "Select…",
+  disabled = false,
+  className = "",
+  id,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly DropdownOption[];
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  id?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = options.find((o) => o.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        id={id}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors hover:bg-slate-50 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-white/5"
+      >
+        <span className={`truncate ${selected ? "" : "text-slate-400 dark:text-slate-500"}`}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDownIcon
+          style={{ width: 16, height: 16 }}
+          className={`shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-50 mt-1.5 max-h-64 w-full min-w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-200/50 dark:border-white/10 dark:bg-[#0b1120] dark:shadow-black/50"
+        >
+          {options.map((o) => {
+            const active = o.value === value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                role="option"
+                aria-selected={active}
+                disabled={o.disabled}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                  active
+                    ? "bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
+                } disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                <span className="truncate">{o.label}</span>
+                {active && <CheckMini />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CheckMini() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }
 
@@ -287,7 +395,7 @@ export function ConfirmDialog({
     <dialog
       ref={dialogRef}
       onCancel={onCancel}
-      className="rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm dark:border-white/10 dark:bg-[#0c1324]"
+      className="m-auto w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm dark:border-white/10 dark:bg-[#0c1324]"
     >
       <div className="px-6 py-5">
         <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>

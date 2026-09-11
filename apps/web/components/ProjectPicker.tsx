@@ -10,7 +10,7 @@ import {
   startScraping,
 } from "@/lib/scraping-store";
 import type { Paginated, Project, ScrapingJob } from "@/lib/types";
-import { Alert, Button, Card, CardHeader, ConfirmDialog, Input, Label, Select, Spinner } from "./ui";
+import { Alert, Button, Card, CardHeader, ConfirmDialog, Dropdown, type DropdownOption, Input, Label, Spinner } from "./ui";
 import { PlusIcon, ScrapeIcon } from "./icons";
 
 const ALL = "";
@@ -218,6 +218,12 @@ export function ProjectPicker({
   };
 
   const currentVal = projectId ?? ALL;
+  const projectOptions: DropdownOption[] = loading
+    ? []
+    : [
+        { value: ALL, label: "All Projects" },
+        ...projects.map((p) => ({ value: p.id, label: p.name })),
+      ];
 
   return (
     <div className="space-y-4">
@@ -231,18 +237,14 @@ export function ProjectPicker({
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-56 flex-1">
               <Label htmlFor="project-select">Project</Label>
-              <Select
+              <Dropdown
                 id="project-select"
                 value={currentVal}
-                onChange={(e) => handleSelect(e.target.value)}
+                onChange={handleSelect}
+                options={projectOptions}
+                placeholder={loading ? "Loading…" : "Select project…"}
                 disabled={loading}
-              >
-                {loading && <option>Loading…</option>}
-                {!loading && <option value={ALL}>All Projects</option>}
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </Select>
+              />
             </div>
             {activeProject && !editing && (
               <div className="flex flex-wrap gap-2">
@@ -251,7 +253,7 @@ export function ProjectPicker({
                   Rename
                 </Button>
                 <Button variant="secondary" size="sm" onClick={openScrape} title="Scrape data">
-                  <ScrapeIcon />
+                  <ScrapeIcon style={{ width: 16, height: 16 }} />
                   Scrape data
                 </Button>
                 <Button variant="danger" size="sm" onClick={handleDelete} loading={deleting} title="Delete project">
@@ -276,7 +278,7 @@ export function ProjectPicker({
                   className="min-w-48 flex-1"
                 />
                 <Button onClick={() => void handleCreate()} loading={creating}>
-                  <PlusIcon />
+                  <PlusIcon style={{ width: 16, height: 16 }} />
                   Create project
                 </Button>
               </div>
@@ -332,7 +334,7 @@ export function ProjectPicker({
                   <Input id="scrape-max" type="number" min={1} max={100} value={scrapeMax} onChange={(e) => setScrapeMax(e.target.value)} />
                 </div>
                 <Button onClick={() => void submitScrape()} loading={job?.status === "QUEUED" || job?.status === "RUNNING"}>
-                  <ScrapeIcon />
+                  <ScrapeIcon style={{ width: 16, height: 16 }} />
                   Start scraping
                 </Button>
               </div>

@@ -9,11 +9,12 @@ import {
   Button,
   Card,
   ConfirmDialog,
+  Dropdown,
+  type DropdownOption,
   EmptyState,
   Input,
   Label,
   PageHeader,
-  Select,
   Spinner,
   StatusBadge,
 } from "@/components/ui";
@@ -139,19 +140,16 @@ function IdeaCard({ idea, onDeleted }: { idea: ContentIdea; onDeleted: () => voi
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Select
-          aria-label="Language for script/caption"
+        <Dropdown
+          id="idea-translate-language"
           value={language}
-          onChange={(e) => setLanguage(e.target.value)}
+          onChange={setLanguage}
           className="w-40"
-        >
-          <option value="">Auto (English)</option>
-          {CONTENT_LANGUAGES.map((lang) => (
-            <option key={lang} value={lang}>
-              {lang}
-            </option>
-          ))}
-        </Select>
+          options={[
+            { value: "", label: "Auto (English)" },
+            ...CONTENT_LANGUAGES.map((lang): DropdownOption => ({ value: lang, label: lang })),
+          ]}
+        />
         <Button
           variant="secondary"
           size="sm"
@@ -259,33 +257,27 @@ function IdeasInner() {
           </div>
           <div className="w-48">
             <Label htmlFor="idea-format">Format (optional)</Label>
-            <Select
+            <Dropdown
               id="idea-format"
               value={format}
-              onChange={(e) => setFormat(e.target.value)}
-            >
-              <option value="">Any</option>
-              {CONTENT_FORMATS.map((f) => (
-                <option key={f} value={f}>
-                  {f.replace("_", " ")}
-                </option>
-              ))}
-            </Select>
+              onChange={setFormat}
+              options={[
+                { value: "", label: "Any" },
+                ...CONTENT_FORMATS.map((f): DropdownOption => ({ value: f, label: f.replace("_", " ") })),
+              ]}
+            />
           </div>
           <div className="w-44">
             <Label htmlFor="idea-language">Language</Label>
-            <Select
+            <Dropdown
               id="idea-language"
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            >
-              <option value="">English</option>
-              {CONTENT_LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang}
-                </option>
-              ))}
-            </Select>
+              onChange={setLanguage}
+              options={[
+                { value: "", label: "English" },
+                ...CONTENT_LANGUAGES.map((lang): DropdownOption => ({ value: lang, label: lang })),
+              ]}
+            />
           </div>
           <Button onClick={() => void generate()} loading={generating}>
             Generate ideas

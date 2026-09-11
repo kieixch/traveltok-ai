@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { friendlyError } from "@/lib/friendlyError";
 import type { AiProvider, AiProvidersInfo } from "@/lib/types";
 import { SparklesIcon } from "./icons";
+import { Dropdown, type DropdownOption } from "./ui";
 
 interface AiEngineSelectProps {
   variant?: "menu" | "sidebar";
@@ -98,34 +99,29 @@ export function AiEngineSelect({ variant = "sidebar" }: AiEngineSelectProps) {
 
   const body = (
     <>
-      <select
+      <Dropdown
         value={info.current}
+        onChange={(v) => changeProvider(v as AiProvider)}
         disabled={loading}
-        onChange={(e) => changeProvider(e.target.value as AiProvider)}
-        className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none transition-colors focus:border-emerald-400/50 disabled:opacity-60 dark:border-white/10 dark:bg-[#0d1428] dark:text-slate-100"
-      >
-        {info.providers.map((p) => (
-          <option key={p.value} value={p.value} disabled={!p.available}>
-            {p.label}
-            {!p.available ? " (no API key)" : ""}
-          </option>
-        ))}
-      </select>
+        placeholder="Loading…"
+        options={info.providers.map(
+          (p): DropdownOption => ({
+            value: p.value,
+            label: p.available ? p.label : `${p.label} (no API key)`,
+            disabled: !p.available,
+          }),
+        )}
+      />
 
       {showModelSelect && gemini && (
-        <select
+        <Dropdown
           value={gemini.model}
+          onChange={changeModel}
           disabled={modelSaving}
-          onChange={(e) => changeModel(e.target.value)}
-          aria-label="Gemini model"
-          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 outline-none transition-colors focus:border-emerald-400/50 disabled:opacity-60 dark:border-white/10 dark:bg-[#0d1428] dark:text-slate-100"
-        >
-          {gemini.models.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
+          placeholder="Select model…"
+          options={gemini.models.map((m): DropdownOption => ({ value: m, label: m }))}
+          className="mt-2"
+        />
       )}
 
       {showModelSelect && gemini && (

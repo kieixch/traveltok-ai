@@ -9,11 +9,12 @@ import {
   Button,
   Card,
   CardHeader,
+  Dropdown,
+  type DropdownOption,
   EmptyState,
   Input,
   Label,
   PageHeader,
-  Select,
   Spinner,
 } from "@/components/ui";
 import { api, formatPercent } from "@/lib/api";
@@ -102,17 +103,14 @@ function TrendsInner() {
           </div>
           <div className="w-36">
             <Label htmlFor="trend-period">Window (days)</Label>
-            <Select
+            <Dropdown
               id="trend-period"
-              value={periodDays}
-              onChange={(e) => setPeriodDays(Number(e.target.value))}
-            >
-              {[14, 30, 60, 90].map((n) => (
-                <option key={n} value={n}>
-                  {n} days
-                </option>
-              ))}
-            </Select>
+              value={String(periodDays)}
+              onChange={(v) => setPeriodDays(Number(v))}
+              options={[14, 30, 60, 90].map(
+                (n): DropdownOption => ({ value: String(n), label: `${n} days` }),
+              )}
+            />
           </div>
           <Button onClick={() => void runScore()} loading={scoring}>
             Score trend

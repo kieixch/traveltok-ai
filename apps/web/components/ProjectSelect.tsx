@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { setProjectId } from "@/lib/auth";
 import { friendlyError } from "@/lib/friendlyError";
 import type { Paginated, Project } from "@/lib/types";
-import { Label, Select, Spinner } from "./ui";
+import { Dropdown, type DropdownOption, Label, Spinner } from "./ui";
 
 const ALL = "";
 
@@ -46,22 +46,24 @@ export function ProjectSelect({
   };
 
   const currentVal = projectId ?? ALL;
+  const options: DropdownOption[] = loading
+    ? []
+    : [
+        { value: ALL, label: "All Projects" },
+        ...projects.map((p) => ({ value: p.id, label: p.name })),
+      ];
 
   return (
     <div className="min-w-56">
       <Label htmlFor="project-select">Project</Label>
-      <Select
+      <Dropdown
         id="project-select"
         value={currentVal}
-        onChange={(e) => handleSelect(e.target.value)}
+        onChange={handleSelect}
+        options={options}
+        placeholder={loading ? "Loading…" : "Select project…"}
         disabled={loading}
-      >
-        {loading && <option>Loading…</option>}
-        {!loading && <option value={ALL}>All Projects</option>}
-        {projects.map((p) => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </Select>
+      />
       {loading && <Spinner className="mt-1 h-3 w-3 text-slate-400" />}
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
