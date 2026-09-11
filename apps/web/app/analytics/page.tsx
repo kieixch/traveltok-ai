@@ -47,7 +47,7 @@ function AnalyticsInner() {
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0 lg:col-span-2">
           <CardHeader
             title="Top creators"
             subtitle={projectId ? "Ranked by the selected metric." : "Across all projects."}
@@ -104,7 +104,7 @@ function AnalyticsInner() {
                               @{c.username.charAt(0).toUpperCase()}
                             </div>
                           )}
-                          <div>
+                          <div className="min-w-0">
                             {c.profileUrl ? (
                               <a
                                 href={c.profileUrl}
@@ -147,7 +147,7 @@ function AnalyticsInner() {
           </div>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader title="Top hashtags" subtitle="By number of videos." />
           <div className="px-5 py-4">
             {hashtags.loading ? (
