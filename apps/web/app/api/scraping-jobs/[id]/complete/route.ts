@@ -3,11 +3,29 @@ import { scrapingJobsService } from "@/lib/server/services/scraping-jobs.service
 import { jsonResponse, ok, unauthorized, toErrorResponse } from "@/lib/server/http";
 
 interface ApifyWebhookPayload {
-  eventData?: { actorRunId?: string; actorId?: string; run?: { id?: string } };
+  eventData?: {
+    actorRunId?: string;
+    actorId?: string;
+    run?: { id?: string };
+  };
   actorRunId?: string;
+  resource?: { id?: string };
+  run?: { id?: string };
+  event?: { runId?: string; kind?: string };
 }
 
 export const runtime = "nodejs";
+
+function extractRunId(payload: ApifyWebhookPayload): string | undefined {
+  return (
+    payload.eventData?.actorRunId ??
+    payload.eventData?.run?.id ??
+    payload.actorRunId ??
+    payload.resource?.id ??
+    payload.run?.id ??
+    payload.event?.runId
+  );
+}
 
 export async function POST(request: NextRequest): Promise<Response> {
   const secret = process.env.SCRAPE_WEBHOOK_SECRET;
@@ -27,8 +45,12 @@ export async function POST(request: NextRequest): Promise<Response> {
     } catch {
       return jsonResponse(400, { success: false, message: "Invalid webhook payload", code: "BAD_REQUEST" });
     }
-    const apifyRunId = payload.eventData?.actorRunId ?? payload.actorRunId;
+    const apifyRunId = extractRunId(payload);
     if (!apifyRunId) {
+      await scrapingJobsService.markFailed(
+        jobId,
+        `Missing actorRunId in webhook payload: ${JSON.stringify(payload)}`,
+      );
       return jsonResponse(400, { success: false, message: "Missing actorRunId", code: "BAD_REQUEST" });
     }
     const saved = await scrapingJobsService.completeFromWebhook(jobId, apifyRunId);

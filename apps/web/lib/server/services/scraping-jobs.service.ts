@@ -89,27 +89,48 @@ export class ScrapingJobsService {
     if (!(scraper instanceof (await import("../scraping/tiktok-scraper")).TikTokScraper)) {
       throw badRequest("Not an Apify scraping job");
     }
-    const result = await scraper.fetchResult(apifyRunId, job.maxResults ?? 20);
+    try {
+      const result = await scraper.fetchResult(apifyRunId, job.maxResults ?? 20);
+      await getPrisma().scrapingJob.update({
+        where: { id: jobId },
+        data: {
+          status: "RUNNING",
+          apifyRunId,
+          startedAt: job.startedAt ?? new Date(),
+        },
+      });
+      await persistResults(job.projectId, result.items);
+      await getPrisma().scrapingJob.update({
+        where: { id: jobId },
+        data: {
+          status: "COMPLETED",
+          totalResults: result.items.length,
+          processedResults: result.items.length,
+          apifyRunId: result.apifyRunId ?? apifyRunId,
+          completedAt: new Date(),
+        },
+      });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await this.markFailed(jobId, `Webhook completion failed: ${message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Marks a job as failed so an uncompleted webhook delivery never leaves the
+   * job hanging in RUNNING (and the UI polling forever).
+   */
+  async markFailed(jobId: string, message: string) {
     await getPrisma().scrapingJob.update({
       where: { id: jobId },
       data: {
-        status: "RUNNING",
-        apifyRunId,
-        startedAt: job.startedAt ?? new Date(),
-      },
-    });
-    await persistResults(job.projectId, result.items);
-    await getPrisma().scrapingJob.update({
-      where: { id: jobId },
-      data: {
-        status: "COMPLETED",
-        totalResults: result.items.length,
-        processedResults: result.items.length,
-        apifyRunId: result.apifyRunId ?? apifyRunId,
+        status: "FAILED",
+        errorMessage: message,
         completedAt: new Date(),
       },
     });
-    return true;
   }
 
   async list(
