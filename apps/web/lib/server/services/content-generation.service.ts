@@ -14,6 +14,7 @@ import {
   type ContentVideoReference,
   type CtaType,
   type ScriptGeneratorInput,
+  type ScriptVideoReference,
   type VideoClassificationInput,
 } from "@traveltok/ai";
 import { getPrisma } from "@/lib/server/prisma";
@@ -297,6 +298,29 @@ class ContentGenerationService {
     const model = await aiRuntimeService.modelFor(userId, mode);
     const scriptGenerator = createScriptGenerator(this.config, mode, model);
 
+    let referenceVideo: ScriptVideoReference | undefined;
+    if (idea.sourceVideoId) {
+      const video = await getPrisma().video.findUnique({
+        where: { id: idea.sourceVideoId },
+        include: analysisVideoInclude,
+      });
+      if (video) {
+        const analysis = video.analyses[0];
+        const raw = analysis?.rawJson as unknown as { summary?: string | null } | null;
+        referenceVideo = {
+          caption: video.caption,
+          creatorUsername: video.creator.username,
+          destination: analysis?.destination ?? null,
+          topic: analysis?.topic ?? null,
+          contentFormat: analysis?.contentFormat ?? null,
+          hookType: analysis?.hookType ?? null,
+          hookText: analysis?.hookText ?? null,
+          summary: raw?.summary ?? null,
+          hashtags: video.hashtags.map((vh) => vh.hashtag.name),
+        };
+      }
+    }
+
     const input: ScriptGeneratorInput = {
       ideaTitle: idea.title,
       hook: idea.hook,
@@ -307,6 +331,7 @@ class ContentGenerationService {
       cta: idea.cta as CtaType | null,
       randomness: idea.id,
       language: dto?.language,
+      referenceVideo,
     };
 
     const script = await scriptGenerator.generate(input);

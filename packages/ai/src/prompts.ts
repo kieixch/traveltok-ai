@@ -5,6 +5,7 @@ import {
   ContentIdeaGeneratorInput,
   ProjectInsightInput,
   SENTIMENTS,
+  ScriptVideoReference,
   VideoClassificationInput,
 } from "./types";
 
@@ -164,6 +165,7 @@ export interface ScriptGeneratorUserPromptInput {
   targetAudience: string | null;
   cta: string | null;
   randomness: string;
+  referenceVideo?: ScriptVideoReference;
 }
 
 export function buildScriptGeneratorUserPrompt(
@@ -179,6 +181,24 @@ export function buildScriptGeneratorUserPrompt(
     `CTA: ${input.cta ?? "(none)"}`,
     `Seed (for determinism): ${input.randomness}`,
   ];
+  const ref = input.referenceVideo;
+  if (ref) {
+    const parts = [
+      `caption: ${ref.caption ?? "(none)"}`,
+      `creator: @${ref.creatorUsername ?? "unknown"}`,
+      `topic: ${ref.topic ?? "(none)"}`,
+      `destination: ${ref.destination ?? "(none)"}`,
+      `format: ${ref.contentFormat ?? "(none)"}`,
+      `hook-line: "${ref.hookText ?? "(none)"}"`,
+      `hashtags: ${ref.hashtags.join(", ") || "(none)"}`,
+      `insight: ${ref.summary ?? "(none)"}`,
+    ];
+    lines.push(
+      "",
+      "Reference video (base the script on this proven video — adapt its hook, structure and tone rather than inventing a new one):",
+      "  " + parts.join(" | "),
+    );
+  }
   return lines.join("\n");
 }
 

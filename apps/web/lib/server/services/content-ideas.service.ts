@@ -21,6 +21,23 @@ export interface CreateContentIdeaInput {
 
 export type UpdateContentIdeaInput = Partial<CreateContentIdeaInput>;
 
+const sourceVideoInclude = {
+  sourceVideo: {
+    select: {
+      id: true,
+      url: true,
+      caption: true,
+      thumbnailUrl: true,
+      creator: { select: { username: true } },
+      metrics: {
+        orderBy: { collectedAt: "desc" },
+        take: 1,
+        select: { views: true, likes: true },
+      },
+    },
+  },
+} as const;
+
 class ContentIdeasService {
   create(input: CreateContentIdeaInput) {
     return getPrisma().contentIdea.create({
@@ -57,26 +74,19 @@ class ContentIdeasService {
         where,
         ...paginationParams(page, pageSize),
         orderBy: { createdAt: "desc" },
-        include: {
-          sourceVideo: {
-            select: {
-              id: true,
-              url: true,
-              caption: true,
-              thumbnailUrl: true,
-              creator: { select: { username: true } },
-              metrics: {
-                orderBy: { collectedAt: "desc" },
-                take: 1,
-                select: { views: true, likes: true },
-              },
-            },
-          },
-        },
+        include: sourceVideoInclude,
       }),
       prisma.contentIdea.count({ where }),
     ]);
     return buildPagination(items, total, page, pageSize);
+  }
+
+  listForVideo(videoId: string) {
+    return getPrisma().contentIdea.findMany({
+      where: { sourceVideoId: videoId },
+      orderBy: { createdAt: "desc" },
+      include: sourceVideoInclude,
+    });
   }
 
   async getById(id: string) {

@@ -140,6 +140,18 @@ export interface ContentVideoReference {
   hashtags: string[];
 }
 
+export interface ScriptVideoReference {
+  caption: string | null;
+  creatorUsername: string | null;
+  destination: string | null;
+  topic: string | null;
+  contentFormat: ContentFormat | null;
+  hookType: HookType | null;
+  hookText: string | null;
+  summary: string | null;
+  hashtags: string[];
+}
+
 export interface ScriptSection {
   section: string;
   durationSeconds: number;
@@ -164,6 +176,8 @@ export interface ScriptGeneratorInput {
   randomness: string;
   /** Language for the generated text (e.g. "English", "Bahasa Indonesia"). */
   language?: string;
+  /** Analyzed source video the script should adapt its angle from. */
+  referenceVideo?: ScriptVideoReference;
 }
 
 export interface VideoCaption {

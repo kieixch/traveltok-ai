@@ -120,6 +120,7 @@ export class MockScriptGenerator implements ScriptGenerator {
 
     return {
       hook:
+        input.referenceVideo?.hookText ??
         input.hook ??
         `You're not ready for what ${input.destination ?? "this place"} looks like.`,
       outline,
@@ -157,6 +158,7 @@ export class OpenAIScriptGenerator implements ScriptGenerator {
             targetAudience: input.targetAudience,
             cta: input.cta,
             randomness: input.randomness,
+            referenceVideo: input.referenceVideo,
           }),
         },
       ],

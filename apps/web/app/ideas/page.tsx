@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { ProjectSelect } from "@/components/ProjectSelect";
 import {
@@ -17,7 +17,7 @@ import {
   Spinner,
   StatusBadge,
 } from "@/components/ui";
-import { IdeasIcon, ScrapeIcon, SparklesIcon } from "@/components/icons";
+import { IdeasIcon, ScrapeIcon, SparklesIcon, VideoIcon } from "@/components/icons";
 import { api, formatNumber } from "@/lib/api";
 import { friendlyError } from "@/lib/friendlyError";
 import { getProjectId } from "@/lib/auth";
@@ -26,6 +26,23 @@ import { CONTENT_FORMATS, CONTENT_LANGUAGES } from "@/lib/types";
 import type { ContentIdea, Paginated } from "@/lib/types";
 
 type IdeaTab = "ideas" | "getIdeas";
+
+function VideoThumb({
+  src,
+  alt = "",
+  className,
+}: {
+  src: string | null;
+  alt?: string;
+  className: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={alt} onError={() => setFailed(true)} className={className} />
+  );
+}
 
 function IdeaCard({ idea, onDeleted }: { idea: ContentIdea; onDeleted: () => void }) {
   const [busy, setBusy] = useState<"script" | "caption" | "delete" | null>(null);
@@ -118,16 +135,7 @@ function IdeaCard({ idea, onDeleted }: { idea: ContentIdea; onDeleted: () => voi
           rel="noopener noreferrer"
           className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white/70 p-2 transition-colors hover:border-emerald-400/40 hover:bg-white dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-emerald-400/30"
         >
-          {source.thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={source.thumbnailUrl}
-              alt=""
-              className="h-12 w-20 shrink-0 rounded-lg object-cover"
-            />
-          ) : (
-            <div className="h-12 w-20 shrink-0 rounded-lg bg-slate-100 dark:bg-white/5" />
-          )}
+          <VideoThumb src={source.thumbnailUrl} className="h-12 w-20 shrink-0 rounded-lg object-cover" />
           <span className="min-w-0">
             <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-200">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -271,6 +279,7 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analyzingAll, setAnalyzingAll] = useState(false);
   const [analyzeProgress, setAnalyzeProgress] = useState<{ done: number; total: number } | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
 
   const videosPath = projectId
     ? `/videos?projectId=${projectId}&pageSize=60&sort=scrapedAt&order=desc`
@@ -436,15 +445,23 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
               const ref = analyzedMap.get(video.id);
               const metric = video.metrics[0];
               return (
-                <div key={video.id} className="flex items-center gap-3 py-3">
-                  <div className="h-16 w-28 shrink-0 overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5">
-                    {video.thumbnailUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={video.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full" />
-                    )}
-                  </div>
+                <div
+                  key={video.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedVideo(video)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedVideo(video);
+                    }
+                  }}
+                  className="flex cursor-pointer items-center gap-3 py-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                >
+                  <VideoThumb
+                    src={video.thumbnailUrl}
+                    className="h-16 w-28 shrink-0 rounded-lg object-cover"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
                       {video.caption ?? "Untitled video"}
@@ -469,7 +486,18 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
                       </div>
                     )}
                   </div>
-                  <div className="shrink-0">
+                  <div className="flex shrink-0 flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
+                    {video.url && (
+                      <a
+                        href={video.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-100 hover:ring-slate-300 dark:text-slate-200 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:ring-white/20"
+                      >
+                        <VideoIcon style={{ width: 14, height: 14 }} />
+                        View on TikTok
+                      </a>
+                    )}
                     {ref ? (
                       <Badge color="green">Analyzed</Badge>
                     ) : (
@@ -503,7 +531,192 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
           </div>
         </div>
       )}
+
+      <VideoIdeasDialog
+        key={selectedVideo?.id ?? "none"}
+        video={selectedVideo}
+        projectId={projectId}
+        analyzedRef={selectedVideo ? analyzedMap.get(selectedVideo.id) ?? null : null}
+        onClose={() => setSelectedVideo(null)}
+        onChanged={() => void analyzed.refresh()}
+      />
     </div>
+  );
+}
+
+function VideoIdeasDialog({
+  video,
+  projectId,
+  analyzedRef,
+  onClose,
+  onChanged,
+}: {
+  video: VideoItem | null;
+  projectId: string | null;
+  analyzedRef: AnalyzedRef | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const ideasPath = video ? `/videos/${video.id}/ideas` : null;
+  const result = useApi<{ ideas: ContentIdea[] }>(ideasPath);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    if (video && !el.open) el.showModal();
+    else if (!video && el.open) el.close();
+  }, [video]);
+
+  const deleteIdea = (id: string) => {
+    setDeletedIds((prev) => new Set(prev).add(id));
+    onChanged();
+  };
+
+  const generateForVideo = async () => {
+    if (!video || !projectId) return;
+    setGenerating(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const generatedIdea = await api<GetIdeasResponse>("/content-ideas/generate-from-videos", {
+        method: "POST",
+        body: { projectId, videoIds: [video.id], count: 1 },
+      });
+      await result.refresh();
+      setSuccess(
+        generatedIdea.ideas.length > 0
+          ? `Berhasil membuat ${generatedIdea.ideas.length} ide berdasarkan video ini.`
+          : "Tidak ada ide baru yang dihasilkan untuk video ini.",
+      );
+      onChanged();
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const ideas = useMemo(
+    () =>
+      (result.data?.ideas ?? []).filter(
+        (idea) => !deletedIds.has(idea.id),
+      ),
+    [result.data, deletedIds],
+  );
+  const metric = video?.metrics[0];
+
+  return (
+    <dialog
+      ref={dialogRef}
+      onCancel={onClose}
+      onClick={(e) => {
+        if (e.target === dialogRef.current) onClose();
+      }}
+      className="m-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm dark:border-white/10 dark:bg-[#0c1324]"
+    >
+      {video && (
+        <div className="max-h-[85vh] overflow-y-auto">
+          <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 px-5 py-4 backdrop-blur dark:border-white/10 dark:bg-[#0c1324]/90">
+            <div className="flex items-start gap-3">
+              <VideoThumb
+                src={video.thumbnailUrl}
+                className="h-16 w-28 shrink-0 rounded-lg object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {video.caption ?? "Untitled video"}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
+                  @{video.creator.username ?? "unknown"}
+                  {metric ? ` · ${formatNumber(Number(metric.views))} views` : ""}
+                </p>
+                {analyzedRef && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {analyzedRef.contentFormat && (
+                      <Badge color="slate">{analyzedRef.contentFormat.replace("_", " ")}</Badge>
+                    )}
+                    {analyzedRef.destination && <Badge color="blue">{analyzedRef.destination}</Badge>}
+                    {analyzedRef.hookType && (
+                      <Badge color="amber">{analyzedRef.hookType.replace("_", " ")} hook</Badge>
+                    )}
+                    {analyzedRef.aiScore != null && (
+                      <Badge color="green">score {analyzedRef.aiScore.toFixed(0)}</Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {video.url && (
+                  <a
+                    href={video.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-100 hover:ring-slate-300 dark:text-slate-200 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:ring-white/20"
+                  >
+                    <VideoIcon style={{ width: 14, height: 14 }} />
+                    View on TikTok
+                  </a>
+                )}
+                <Button variant="ghost" size="sm" onClick={onClose}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Ideas from this video
+                </h2>
+                <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                  Generated ideas that reference this video. Scripts adapt its proven angle.
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={generating}
+                disabled={!projectId}
+                onClick={() => void generateForVideo()}
+              >
+                <SparklesIcon style={{ width: 14, height: 14 }} />
+                Generate ideas
+              </Button>
+            </div>
+
+            {error && (
+              <div className="mb-3"><Alert kind="error">{error}</Alert></div>
+            )}
+            {success && (
+              <div className="mb-3"><Alert kind="success">{success}</Alert></div>
+            )}
+
+            {result.loading ? (
+              <div className="flex justify-center py-10 text-slate-400">
+                <Spinner className="h-6 w-6" />
+              </div>
+            ) : result.error ? (
+              <Alert kind="error">{result.error}</Alert>
+            ) : ideas.length > 0 ? (
+              <div className="space-y-3">
+                {ideas.map((idea) => (
+                  <IdeaCard key={idea.id} idea={idea} onDeleted={() => deleteIdea(idea.id)} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState message="Belum ada ide untuk video ini. Klik 'Generate ideas' untuk membuat ide berdasarkan video ini." />
+            )}
+          </div>
+        </div>
+      )}
+    </dialog>
   );
 }
 
@@ -561,7 +774,7 @@ function IdeasInner() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex w-fit items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-200/40 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="flex w-fit items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-900/10 dark:border-white/10 dark:bg-white/[0.03] dark:shadow-black/40">
             <button type="button" onClick={() => setTab("ideas")} className={tabClass(tab === "ideas")}>
               <IdeasIcon style={{ width: 16, height: 16 }} />
               Content Ideas
