@@ -52,12 +52,12 @@ function AnalyticsInner() {
             title="Top creators"
             subtitle={projectId ? "Ranked by the selected metric." : "Across all projects."}
             action={
-              <div className="flex gap-1 rounded-lg bg-slate-100 dark:bg-white/5 p-1">
+              <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 dark:bg-white/5 p-1">
                 {SORTS.map((s) => (
                   <button
                     key={s.value}
                     onClick={() => setSort(s.value)}
-                    className={`rounded-md px-3 py-1 text-sm transition-colors ${
+                    className={`whitespace-nowrap rounded-md px-3 py-1 text-sm transition-colors ${
                       sort === s.value
                         ? "bg-slate-200 dark:bg-white/10 font-medium text-emerald-600 dark:text-emerald-300 shadow-sm"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
@@ -77,7 +77,7 @@ function AnalyticsInner() {
             ) : creators.error ? (
               <div className="p-5"><Alert kind="error">{creators.error}</Alert></div>
             ) : creators.data && creators.data.length > 0 ? (
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="border-b border-slate-200 dark:border-white/10 text-xs uppercase text-slate-400 dark:text-slate-500">
                   <tr>
                     <th className="px-5 py-3 font-medium">Creator</th>
