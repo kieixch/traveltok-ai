@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
-import { ProjectPicker } from "@/components/ProjectPicker";
+import { ProjectSelect } from "@/components/ProjectSelect";
 import {
   Alert,
   Badge,
@@ -241,7 +241,7 @@ function IdeasInner() {
       <PageHeader
         title="Content ideas"
         description="Generate and refine AI content ideas."
-        action={<ProjectPicker projectId={projectId} onChange={setProjectId} />}
+        action={<ProjectSelect projectId={projectId} onChange={setProjectId} />}
       />
 
       <Card className="mb-6 p-5">

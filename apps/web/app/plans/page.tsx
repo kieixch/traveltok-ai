@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
-import { ProjectPicker } from "@/components/ProjectPicker";
+import { ProjectSelect } from "@/components/ProjectSelect";
 import {
   Alert,
   Badge,
@@ -187,7 +187,7 @@ function PlansInner() {
       <PageHeader
         title="Content planner"
         description="Turn ideas into a scheduled posting calendar."
-        action={<ProjectPicker projectId={projectId} onChange={setProjectId} />}
+        action={<ProjectSelect projectId={projectId} onChange={setProjectId} />}
       />
 
       <Card className="mb-6 p-5">

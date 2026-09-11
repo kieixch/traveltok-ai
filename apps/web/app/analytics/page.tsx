@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
-import { ProjectPicker } from "@/components/ProjectPicker";
+import { ProjectSelect } from "@/components/ProjectSelect";
 import {
   Alert,
   Badge,
@@ -43,7 +43,7 @@ function AnalyticsInner() {
             ? "Top creators and hashtags across the selected project."
             : "Top creators and hashtags across all projects."
         }
-        action={<ProjectPicker projectId={projectId} onChange={setProjectId} />}
+        action={<ProjectSelect projectId={projectId} onChange={setProjectId} />}
       />
 
       <div className="grid gap-6 lg:grid-cols-3">

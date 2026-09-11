@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
-import { ProjectPicker } from "@/components/ProjectPicker";
+import { ProjectSelect } from "@/components/ProjectSelect";
 import {
   Alert,
   Button,
@@ -118,7 +118,7 @@ function CreatorsInner() {
       <PageHeader
         title="Creators"
         description="All creators discovered from scraped videos, with live performance metrics."
-        action={<ProjectPicker projectId={projectId} onChange={setProjectId} />}
+        action={<ProjectSelect projectId={projectId} onChange={setProjectId} />}
       />
 
       <Card className="mb-6 p-5">

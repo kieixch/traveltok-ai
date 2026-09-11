@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
-import { ProjectPicker } from "@/components/ProjectPicker";
+import { ProjectSelect } from "@/components/ProjectSelect";
 import { AreaChart, Donut, ProgressList } from "@/components/charts";
 import {
   AnalyticsIcon,
@@ -69,7 +69,7 @@ function DashboardInner() {
       <PageHeader
         title="Dashboard"
         description="Project performance at a glance."
-        action={<ProjectPicker projectId={projectId} onChange={setProjectId} />}
+        action={<ProjectSelect projectId={projectId} onChange={setProjectId} />}
       />
 
       {overview.loading && (

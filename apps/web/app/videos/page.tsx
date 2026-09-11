@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
-import { ProjectPicker } from "@/components/ProjectPicker";
+import { ProjectSelect } from "@/components/ProjectSelect";
 import {
   Alert,
   Button,
@@ -108,7 +108,7 @@ function VideosInner() {
       <PageHeader
         title="Videos"
         description="All scraped TikTok videos with dates and metrics."
-        action={<ProjectPicker projectId={projectId} onChange={(id) => { setProjectId(id); setPage(1); }} />}
+        action={<ProjectSelect projectId={projectId} onChange={(id) => { setProjectId(id); setPage(1); }} />}
       />
 
       <Card className="mb-6 p-5">

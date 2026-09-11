@@ -21,6 +21,7 @@ import {
   MapPinIcon,
   MoreIcon,
   PlansIcon,
+  ScrapeIcon,
   SearchIcon,
   TrendsIcon,
   VideoIcon,
@@ -32,6 +33,7 @@ import { ScrapingNotification } from "./ScrapingNotification";
 const NAV = [
   { href: "/", label: "Dashboard", icon: DashboardIcon },
   { href: "/analytics", label: "Analytics", icon: AnalyticsIcon },
+  { href: "/scrape", label: "Scrape", icon: ScrapeIcon },
   { href: "/creators", label: "Creators", icon: CreatorsIcon },
   { href: "/videos", label: "Videos", icon: VideoIcon },
   { href: "/ideas", label: "Ideas", icon: IdeasIcon },
