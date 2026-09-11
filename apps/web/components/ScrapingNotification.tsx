@@ -22,14 +22,22 @@ export function ScrapingNotification() {
 
   useEffect(() => {
     if (!job) return;
-    if (job.status === "COMPLETED" || job.status === "FAILED") {
+    if (job.status === "COMPLETED") {
       const t = setTimeout(() => {
         setVisible(false);
         setDismissed(job.id);
       }, 5000);
       return () => clearTimeout(t);
     }
+    if (job.status === "FAILED" && job.id === dismissed) {
+      setVisible(false);
+    }
   }, [job, dismissed]);
+
+  const dismiss = () => {
+    setVisible(false);
+    if (job) setDismissed(job.id);
+  };
 
   if (!job || !visible || job.id === dismissed) return null;
 
@@ -37,8 +45,8 @@ export function ScrapingNotification() {
 
   return (
     <div className="fixed bottom-20 right-4 z-[100] lg:bottom-6">
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0b1120]/95 px-4 py-3 shadow-2xl shadow-slate-200/50 dark:shadow-black/60 backdrop-blur-xl">
-        {active && <Spinner className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />}
+      <div className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0b1120]/95 px-4 py-3 shadow-2xl shadow-slate-200/50 dark:shadow-black/60 backdrop-blur-xl">
+        {active && <Spinner className="mt-0.5 h-4 w-4 text-emerald-500 dark:text-emerald-400" />}
         <div className="min-w-0">
           {active && (
             <p className="text-sm text-slate-800 dark:text-slate-200">
@@ -51,9 +59,18 @@ export function ScrapingNotification() {
             </p>
           )}
           {job.status === "FAILED" && (
-            <p className="text-sm text-red-600 dark:text-red-300">Scraping gagal.</p>
+            <p className="text-sm text-red-600 dark:text-red-300">
+              Scraping gagal{job.errorMessage ? `: ${job.errorMessage}` : "."}
+            </p>
           )}
         </div>
+        <button
+          onClick={dismiss}
+          className="ml-2 shrink-0 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+          title="Tutup"
+        >
+          ✕
+        </button>
       </div>
     </div>
   );
