@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDownIcon } from "./icons";
 
 export function Spinner({ className = "" }: { className?: string }) {
@@ -120,17 +121,40 @@ export function Dropdown({
   id?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const selected = options.find((o) => o.value === value);
+
+  const measure = useCallback(() => {
+    const btn = triggerRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const width = Math.max(r.width, 208);
+    const left = Math.max(4, Math.min(r.left, window.innerWidth - width - 4));
+    setPos({ top: r.bottom + 6, left, width });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [open, measure]);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const node = e.target as Node;
+      const inside = triggerRef.current?.contains(node) || menuRef.current?.contains(node);
+      if (!inside) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape" || e.key === "Tab") setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -141,14 +165,22 @@ export function Dropdown({
   }, [open]);
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div className={className}>
       <button
+        ref={triggerRef}
         id={id}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+          } else {
+            measure();
+            setOpen(true);
+          }
+        }}
         className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 transition-colors hover:bg-slate-50 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-white/5"
       >
         <span className={`truncate ${selected ? "" : "text-slate-400 dark:text-slate-500"}`}>
@@ -159,37 +191,42 @@ export function Dropdown({
           className={`shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open && (
-        <div
-          role="listbox"
-          className="absolute z-50 mt-1.5 max-h-64 w-full min-w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-200/50 dark:border-white/10 dark:bg-[#0b1120] dark:shadow-black/50"
-        >
-          {options.map((o) => {
-            const active = o.value === value;
-            return (
-              <button
-                key={o.value}
-                type="button"
-                role="option"
-                aria-selected={active}
-                disabled={o.disabled}
-                onClick={() => {
-                  onChange(o.value);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                  active
-                    ? "bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
-                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
-                } disabled:cursor-not-allowed disabled:opacity-40`}
-              >
-                <span className="truncate">{o.label}</span>
-                {active && <CheckMini />}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            style={{ top: pos.top, left: pos.left, width: pos.width }}
+            className="fixed z-[120] max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-200/50 dark:border-white/10 dark:bg-[#0b1120] dark:shadow-black/50"
+          >
+            {options.map((o) => {
+              const active = o.value === value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  disabled={o.disabled}
+                  onClick={() => {
+                    onChange(o.value);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                    active
+                      ? "bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+                      : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/5"
+                  } disabled:cursor-not-allowed disabled:opacity-40`}
+                >
+                  <span className="truncate">{o.label}</span>
+                  {active && <CheckMini />}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
