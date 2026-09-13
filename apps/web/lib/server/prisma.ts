@@ -26,3 +26,24 @@ export function getPrisma(): PrismaClient {
   }
   return globalForPrisma.prisma;
 }
+
+/** True for transient pool/connection failures (cold starts, stale idle sockets). */
+export function isRetryableDbError(error: unknown): boolean {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = String((error as { code?: unknown }).code);
+    if (["P1001", "P1002", "P2010", "P2024"].includes(code)) return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /(can't reach database|connection\s+(timed out|terminated|reset|refused)|socket hang up|pool\s+.+timeout|timeout exceeded|ECONNREFUSED|ETIMEDOUT)/i.test(
+    message,
+  );
+}
+
+/** Drops the cached client so the next getPrisma() builds a fresh pool. */
+export async function resetPrisma(): Promise<void> {
+  const client = globalForPrisma.prisma;
+  globalForPrisma.prisma = undefined;
+  if (client) {
+    await client.$disconnect().catch(() => undefined);
+  }
+}

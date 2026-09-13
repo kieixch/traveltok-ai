@@ -303,6 +303,53 @@ export async function persistResults(
     })),
     skipDuplicates: true,
   });
+
+  // Hashtags: upsert the tags, then link them to the refreshed videos. Links
+  // are rewritten on every run so re-scraped videos always reflect the latest
+  // caption/tag set (avoids stale VideoHashtag rows after edits).
+  const uniqueTags = [
+    ...new Set(
+      items
+        .flatMap((item) => item.hashtags ?? [])
+        .map(normalizeHashtag)
+        .filter((tag): tag is string => tag !== null),
+    ),
+  ];
+  if (uniqueTags.length > 0) {
+    await Promise.all(
+      uniqueTags.map((tag) =>
+        prisma.hashtag.upsert({
+          where: { normalizedName: tag },
+          update: {},
+          create: { name: tag, normalizedName: tag, isSeedData: false },
+        }),
+      ),
+    );
+    const tagRows = await prisma.hashtag.findMany({
+      where: { normalizedName: { in: uniqueTags } },
+      select: { id: true, normalizedName: true },
+    });
+    const hashtagIdByNormalized = new Map(
+      tagRows.map((row) => [row.normalizedName, row.id]),
+    );
+    const links: { videoId: string; hashtagId: string }[] = [];
+    for (const item of items) {
+      const videoId = videoIdByExternalId.get(item.externalId);
+      if (!videoId) continue;
+      for (const tag of item.hashtags ?? []) {
+        const normalized = normalizeHashtag(tag);
+        const hashtagId = normalized ? hashtagIdByNormalized.get(normalized) : undefined;
+        if (hashtagId) links.push({ videoId, hashtagId });
+      }
+    }
+    const refreshedVideoIds = [...videoIdByExternalId.values()];
+    await prisma.videoHashtag.deleteMany({
+      where: { videoId: { in: refreshedVideoIds } },
+    });
+    if (links.length > 0) {
+      await prisma.videoHashtag.createMany({ data: links, skipDuplicates: true });
+    }
+  }
 }
 
 /** Strips the leading `#`, lowercases and trims a hashtag. */

@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { friendlyError } from "@/lib/friendlyError";
 import type { AiProvider, AiProvidersInfo } from "@/lib/types";
 import { SparklesIcon } from "./icons";
-import { Dropdown, type DropdownOption } from "./ui";
+import { Dropdown, Spinner, type DropdownOption } from "./ui";
 
 interface AiEngineSelectProps {
   variant?: "menu" | "sidebar";
@@ -29,14 +29,19 @@ function dispatchSync() {
 
 export function AiEngineSelect({ variant = "sidebar" }: AiEngineSelectProps) {
   const [info, setInfo] = useState<AiProvidersInfo>(DEFAULT);
+  const [fetching, setFetching] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modelSaving, setModelSaving] = useState(false);
 
   const fetchInfo = () => {
     return api<AiProvidersInfo>("/ai/providers")
-      .then((data) => setInfo(data))
-      .catch(() => setInfo(DEFAULT));
+      .then((data) => {
+        setInfo(data);
+        setError(null);
+      })
+      .catch(() => setInfo(DEFAULT))
+      .finally(() => setFetching(false));
   };
 
   useEffect(() => {
@@ -44,7 +49,10 @@ export function AiEngineSelect({ variant = "sidebar" }: AiEngineSelectProps) {
   }, []);
 
   useEffect(() => {
-    const onSync = () => void fetchInfo();
+    const onSync = () => {
+      setFetching(true);
+      void fetchInfo();
+    };
     window.addEventListener(syncEventName(), onSync);
     return () => window.removeEventListener(syncEventName(), onSync);
   }, []);
@@ -99,19 +107,28 @@ export function AiEngineSelect({ variant = "sidebar" }: AiEngineSelectProps) {
 
   const body = (
     <>
-      <Dropdown
-        value={info.current}
-        onChange={(v) => changeProvider(v as AiProvider)}
-        disabled={loading}
-        placeholder="Loading…"
-        options={info.providers.map(
-          (p): DropdownOption => ({
-            value: p.value,
-            label: p.available ? p.label : `${p.label} (no API key)`,
-            disabled: !p.available,
-          }),
-        )}
-      />
+      {fetching ? (
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 dark:border-white/10">
+          <Spinner className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
+          <span className="text-sm text-slate-500 dark:text-slate-400">
+            Memuat AI engine…
+          </span>
+        </div>
+      ) : (
+        <Dropdown
+          value={info.current}
+          onChange={(v) => changeProvider(v as AiProvider)}
+          disabled={loading}
+          placeholder="Pilih provider…"
+          options={info.providers.map(
+            (p): DropdownOption => ({
+              value: p.value,
+              label: p.available ? p.label : `${p.label} (no API key)`,
+              disabled: !p.available,
+            }),
+          )}
+        />
+      )}
 
       {showModelSelect && gemini && (
         <Dropdown
