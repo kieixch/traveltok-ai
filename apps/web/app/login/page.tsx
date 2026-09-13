@@ -8,6 +8,7 @@ import { friendlyError } from "@/lib/friendlyError";
 import { setSession } from "@/lib/auth";
 import type { AuthResponse } from "@/lib/types";
 import { AuthLayout } from "@/components/AuthLayout";
+import { EmailDeliveryAlert } from "@/components/EmailDeliveryAlert";
 import { Alert, Button, Input, Label } from "@/components/ui";
 
 export default function LoginPage() {
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [unverified, setUnverified] = useState(false);
   const [resending, setResending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [noticeLink, setNoticeLink] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const submit = async (e: FormEvent) => {
@@ -44,12 +46,14 @@ export default function LoginPage() {
   const resend = async () => {
     setResending(true);
     setNotice(null);
+    setNoticeLink(null);
     try {
-      await api<{ message: string }>("/auth/resend-verification", {
-        method: "POST",
-        body: { email },
-      });
-      setNotice("Tautan verifikasi telah dikirim ulang. Cek inbox kamu.");
+      const data = await api<{ message: string; devVerificationLink?: string }>(
+        "/auth/resend-verification",
+        { method: "POST", body: { email } },
+      );
+      setNotice(data.message);
+      setNoticeLink(data.devVerificationLink ?? null);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -96,6 +100,9 @@ export default function LoginPage() {
 
         {error && <Alert kind="error">{error}</Alert>}
         {notice && <Alert kind="success">{notice}</Alert>}
+        {noticeLink && (
+          <EmailDeliveryAlert link={noticeLink} label="Buka link verifikasi" />
+        )}
 
         <Button type="submit" className="w-full" loading={loading}>
           Sign in

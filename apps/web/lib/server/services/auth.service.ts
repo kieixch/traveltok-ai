@@ -78,17 +78,18 @@ export class AuthService {
       },
     });
 
-    await this.trySendEmail(() =>
-      sendVerificationEmail(
-        user.email,
-        `${origin}/verify-email?token=${encodeURIComponent(token)}`,
-        VERIFY_TOKEN_HOURS,
-      ),
+    const link = `${origin}/verify-email?token=${encodeURIComponent(token)}`;
+    const emailSent = await this.trySendEmail(() =>
+      sendVerificationEmail(user.email, link, VERIFY_TOKEN_HOURS),
     );
 
     return {
       requiresVerification: true,
-      message: "Akun dibuat. Cek email kamu untuk memverifikasi alamat email.",
+      emailSent,
+      message: emailSent
+        ? "Akun dibuat. Cek email kamu untuk memverifikasi alamat email."
+        : "Akun dibuat, tapi email verifikasi belum terkirim (kunci email belum dikonfigurasi).",
+      ...(emailSent ? {} : { devVerificationLink: link }),
     };
   }
 
@@ -154,13 +155,16 @@ export class AuthService {
           emailVerificationExpires: expires,
         },
       });
-      await this.trySendEmail(() =>
-        sendVerificationEmail(
-          user.email,
-          `${origin}/verify-email?token=${encodeURIComponent(token)}`,
-          VERIFY_TOKEN_HOURS,
-        ),
+      const link = `${origin}/verify-email?token=${encodeURIComponent(token)}`;
+      const emailSent = await this.trySendEmail(() =>
+        sendVerificationEmail(user.email, link, VERIFY_TOKEN_HOURS),
       );
+      return emailSent
+        ? { message: "Jika email terdaftar, tautan verifikasi telah dikirim ulang." }
+        : {
+            message: "Email verifikasi belum terkirim (kunci email belum dikonfigurasi).",
+            devVerificationLink: link,
+          };
     }
     return {
       message: "Jika email terdaftar, tautan verifikasi telah dikirim ulang.",
@@ -183,13 +187,16 @@ export class AuthService {
           passwordResetExpires: expires,
         },
       });
-      await this.trySendEmail(() =>
-        sendPasswordResetEmail(
-          user.email,
-          `${origin}/reset-password?token=${encodeURIComponent(token)}`,
-          RESET_TOKEN_HOURS,
-        ),
+      const link = `${origin}/reset-password?token=${encodeURIComponent(token)}`;
+      const emailSent = await this.trySendEmail(() =>
+        sendPasswordResetEmail(user.email, link, RESET_TOKEN_HOURS),
       );
+      return emailSent
+        ? { message: "Jika email terdaftar, tautan reset password telah dikirim." }
+        : {
+            message: "Email reset belum terkirim (kunci email belum dikonfigurasi).",
+            devResetLink: link,
+          };
     }
     return {
       message: "Jika email terdaftar, tautan reset password telah dikirim.",
@@ -226,12 +233,17 @@ export class AuthService {
     return toSafeUser(user);
   }
 
-  /** Sends via email service; email failures should never block auth flows. */
-  private async trySendEmail(send: () => Promise<void>): Promise<void> {
+  /**
+   * Sends via the email service. Returns true only when the message was
+   * actually dispatched to the provider — email failures must never block
+   * auth flows, but callers still learn whether delivery happened.
+   */
+  private async trySendEmail(send: () => Promise<boolean>): Promise<boolean> {
     try {
-      await send();
+      return await send();
     } catch (err) {
       console.error("[auth] failed to send email:", err);
+      return false;
     }
   }
 }

@@ -8,14 +8,19 @@ interface SendMailParams {
   html: string;
 }
 
-async function sendMail(params: SendMailParams): Promise<void> {
+/**
+ * Returns true when the email was dispatched to the provider. Returns false
+ * (and logs the message so the flow stays usable in dev) when RESEND_API_KEY
+ * is not configured.
+ */
+async function sendMail(params: SendMailParams): Promise<boolean> {
   if (!RESEND_API_KEY) {
-    // Local/dev fallback: log instead of failing the whole flow.
-    console.warn("[email] RESEND_API_KEY is not set — email not sent.");
+    // Local/dev fallback: log and report "not sent" instead of failing the flow.
+    console.warn("[email] RESEND_API_KEY is not set — email NOT delivered.");
     console.log(
       `[email] To: ${params.to}\nSubject: ${params.subject}\nBody:\n${params.text}`,
     );
-    return;
+    return false;
   }
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -37,6 +42,7 @@ async function sendMail(params: SendMailParams): Promise<void> {
     const detail = await res.text().catch(() => "");
     throw new Error(`Email send failed (${res.status}): ${detail.slice(0, 300)}`);
   }
+  return true;
 }
 
 const layout = (title: string, body: string, cta: { label: string; href: string }, hint: string) => `
@@ -64,7 +70,7 @@ export function sendVerificationEmail(
   to: string,
   link: string,
   expiresInHours: number,
-): Promise<void> {
+): Promise<boolean> {
   return sendMail({
     to,
     subject: "Verify your email to activate your TravelTok AI account",
@@ -82,7 +88,7 @@ export function sendPasswordResetEmail(
   to: string,
   link: string,
   expiresInHours: number,
-): Promise<void> {
+): Promise<boolean> {
   return sendMail({
     to,
     subject: "Reset your TravelTok AI password",

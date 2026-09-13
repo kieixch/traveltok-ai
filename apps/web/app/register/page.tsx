@@ -5,15 +5,24 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { friendlyError } from "@/lib/friendlyError";
 import { AuthLayout } from "@/components/AuthLayout";
+import { EmailDeliveryAlert } from "@/components/EmailDeliveryAlert";
 import { Alert, Button, Input, Label } from "@/components/ui";
+
+interface RegisterResponse {
+  requiresVerification: boolean;
+  message: string;
+  emailSent?: boolean;
+  devVerificationLink?: string;
+}
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState<RegisterResponse | null>(null);
   const [resending, setResending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [noticeLink, setNoticeLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -23,11 +32,11 @@ export default function RegisterPage() {
     setNotice(null);
     setLoading(true);
     try {
-      await api<{ requiresVerification: boolean; message: string }>("/auth/register", {
+      const data = await api<RegisterResponse>("/auth/register", {
         method: "POST",
         body: { name, email, password },
       });
-      setSent(true);
+      setSent(data);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -38,12 +47,14 @@ export default function RegisterPage() {
   const resend = async () => {
     setResending(true);
     setNotice(null);
+    setNoticeLink(null);
     try {
-      await api<{ message: string }>("/auth/resend-verification", {
-        method: "POST",
-        body: { email },
-      });
-      setNotice("Tautan verifikasi telah dikirim ulang.");
+      const data = await api<{ message: string; devVerificationLink?: string }>(
+        "/auth/resend-verification",
+        { method: "POST", body: { email } },
+      );
+      setNotice(data.message);
+      setNoticeLink(data.devVerificationLink ?? null);
     } catch (err) {
       setError(friendlyError(err));
     } finally {
@@ -57,10 +68,17 @@ export default function RegisterPage() {
         title="Cek email kamu"
         subtitle="Satu langkah lagi untuk mengaktifkan akun."
       >
-        <Alert kind="success">
-          Kami mengirim tautan verifikasi ke <strong>{email}</strong>. Akun baru aktif
-          setelah kamu mengonfirmasi alamat email yang asli.
-        </Alert>
+        {sent.emailSent ? (
+          <Alert kind="success">
+            Kami mengirim tautan verifikasi ke <strong>{email}</strong>. Akun baru aktif
+            setelah kamu mengonfirmasi alamat email yang asli.
+          </Alert>
+        ) : (
+          <EmailDeliveryAlert
+            link={sent.devVerificationLink}
+            label="Buka link verifikasi sekarang"
+          />
+        )}
         <div className="mt-5 space-y-3">
           <Button className="w-full" onClick={() => void resend()} loading={resending}>
             Kirim ulang tautan
@@ -72,7 +90,16 @@ export default function RegisterPage() {
             </Link>
           </p>
         </div>
-        {notice && <Alert kind="success">{notice}</Alert>}
+        {!sent.emailSent && notice && <div className="mt-3">{notice}</div>}
+        {noticeLink && (
+          <div className="mt-3">
+            <EmailDeliveryAlert
+              link={noticeLink}
+              label="Buka link verifikasi baru"
+              message={notice ?? undefined}
+            />
+          </div>
+        )}
       </AuthLayout>
     );
   }
