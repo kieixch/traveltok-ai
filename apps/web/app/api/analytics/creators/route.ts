@@ -3,7 +3,7 @@ import { analyticsService } from "@/lib/server/services/analytics.service";
 
 const SORTS = ["followers", "engagement", "views"] as const;
 
-export const GET = route(async ({ query }) => {
+export const GET = route(async ({ user, query }) => {
   const sortRaw = query.get("sort");
   const sort = SORTS.includes(sortRaw as never)
     ? (sortRaw as "followers" | "engagement" | "views")
@@ -13,5 +13,6 @@ export const GET = route(async ({ query }) => {
     query.get("projectId") ?? undefined,
     sort,
     limit,
+    user.userId,
   );
 });

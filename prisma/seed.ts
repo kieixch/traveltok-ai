@@ -217,6 +217,7 @@ async function main(): Promise<void> {
       passwordHash:
         "seed-only-no-password", // replaced on real registration (auth phase)
       role: "ADMIN",
+      emailVerified: new Date(),
       ...seed,
     },
   });
@@ -227,6 +228,7 @@ async function main(): Promise<void> {
       email: "demo@traveltok.local",
       passwordHash: "seed-only-no-password",
       role: "USER",
+      emailVerified: new Date(),
       ...seed,
     },
   });

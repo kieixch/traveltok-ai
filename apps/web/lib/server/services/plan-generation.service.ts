@@ -9,6 +9,7 @@ import { getPrisma } from "@/lib/server/prisma";
 import { badRequest, notFound } from "@/lib/server/http";
 import { getAIConfig } from "@/lib/server/ai";
 import { aiRuntimeService } from "./ai-runtime.service";
+import { requireOwnedProject } from "@/lib/server/authz";
 
 export interface GenerateContentPlanInput {
   projectId: string;
@@ -28,10 +29,12 @@ class PlanGenerationService {
   }
 
   async generate(userId: string, dto: GenerateContentPlanInput) {
-    const project = await getPrisma().project.findUnique({
-      where: { id: dto.projectId },
-      select: { id: true, name: true, niche: true },
-    });
+    const project = await requireOwnedProject(userId, dto.projectId).then(async (id) =>
+      getPrisma().project.findUnique({
+        where: { id },
+        select: { id: true, name: true, niche: true },
+      }),
+    );
     if (!project) {
       throw notFound("Project not found");
     }

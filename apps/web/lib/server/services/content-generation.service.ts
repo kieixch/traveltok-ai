@@ -22,6 +22,7 @@ import { badRequest, notFound } from "@/lib/server/http";
 import { getAIConfig } from "@/lib/server/ai";
 import { analyticsService } from "./analytics.service";
 import { aiRuntimeService } from "./ai-runtime.service";
+import { requireOwnedProject } from "@/lib/server/authz";
 
 const DEFAULT_FORMAT_MIX: ContentFormat[] = [
   "VLOG",
@@ -88,10 +89,12 @@ class ContentGenerationService {
   }
 
   async generateIdeas(userId: string, dto: GenerateContentIdeasInput) {
-    const project = await getPrisma().project.findUnique({
-      where: { id: dto.projectId },
-      select: { id: true, name: true, niche: true },
-    });
+    const project = await requireOwnedProject(userId, dto.projectId).then(async (id) =>
+      getPrisma().project.findUnique({
+        where: { id },
+        select: { id: true, name: true, niche: true },
+      }),
+    );
     if (!project) {
       throw notFound("Project not found");
     }
@@ -99,8 +102,8 @@ class ContentGenerationService {
     const mode = await aiRuntimeService.modeFor(userId);
     const model = await aiRuntimeService.modelFor(userId, mode);
 
-    const overview = await analyticsService.overview(project.id);
-    const hashtags = await analyticsService.hashtagPerformance(project.id, 5);
+    const overview = await analyticsService.overview(project.id, userId);
+    const hashtags = await analyticsService.hashtagPerformance(project.id, 5, userId);
     const [destinations, formatMix] = await Promise.all([
       this.topDestinations(project.id),
       this.resolveFormatMix(project.id, overview, dto.format, mode, model),
@@ -132,8 +135,9 @@ class ContentGenerationService {
    */
   async generateIdeasFromVideos(userId: string, dto: GenerateIdeasFromVideosInput) {
     const prisma = getPrisma();
+    const projectId = await requireOwnedProject(userId, dto.projectId);
     const project = await prisma.project.findUnique({
-      where: { id: dto.projectId },
+      where: { id: projectId },
       select: { id: true, name: true, niche: true },
     });
     if (!project) {
@@ -142,7 +146,7 @@ class ContentGenerationService {
 
     const videos = await prisma.video.findMany({
       where: {
-        projectId: dto.projectId,
+        projectId: project.id,
         isSeedData: false,
         ...(dto.videoIds && dto.videoIds.length > 0 ? { id: { in: dto.videoIds } } : {}),
       },
@@ -289,10 +293,12 @@ class ContentGenerationService {
   async generateScript(userId: string, ideaId: string, dto?: GenerateScriptInput) {
     const idea = await getPrisma().contentIdea.findUnique({
       where: { id: ideaId },
+      select: { id: true, projectId: true, title: true, hook: true, format: true, topic: true, destination: true, targetAudience: true, cta: true, sourceVideoId: true },
     });
     if (!idea) {
       throw notFound("Content idea not found");
     }
+    await requireOwnedProject(userId, idea.projectId);
 
     const mode = await aiRuntimeService.modeFor(userId);
     const model = await aiRuntimeService.modelFor(userId, mode);
@@ -351,10 +357,12 @@ class ContentGenerationService {
   async generateCaption(userId: string, ideaId: string, dto?: GenerateCaptionInput) {
     const idea = await getPrisma().contentIdea.findUnique({
       where: { id: ideaId },
+      select: { id: true, projectId: true, title: true, hook: true, format: true, topic: true, destination: true, targetAudience: true, cta: true, hashtags: true },
     });
     if (!idea) {
       throw notFound("Content idea not found");
     }
+    await requireOwnedProject(userId, idea.projectId);
 
     const mode = await aiRuntimeService.modeFor(userId);
     const model = await aiRuntimeService.modelFor(userId, mode);

@@ -99,17 +99,22 @@ enum ContentPlanItemStatus {
 // ---------------------------------------------------------------------------
 
 model User {
-  id           String    @id @default(uuid())
-  name         String
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(USER)
-  isSeedData   Boolean   @default(false)
-  aiProvider   String    @default("mock")
-  aiModel      String    @default("")
-  projects     Project[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                         String    @id @default(uuid())
+  name                       String
+  email                      String    @unique
+  passwordHash               String
+  role                       Role      @default(USER)
+  emailVerified              DateTime?
+  emailVerificationToken     String?   @unique
+  emailVerificationExpires   DateTime?
+  passwordResetToken         String?   @unique
+  passwordResetExpires       DateTime?
+  isSeedData                 Boolean   @default(false)
+  aiProvider                 String    @default("mock")
+  aiModel                    String    @default("")
+  projects                   Project[]
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 }
 
 model Project {

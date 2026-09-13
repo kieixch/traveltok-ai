@@ -1,5 +1,7 @@
+import { Prisma } from "@traveltok/database";
 import { getPrisma } from "@/lib/server/prisma";
 import { notFound } from "@/lib/server/http";
+import { requireOwnedProject } from "@/lib/server/authz";
 
 export interface TopHashtag {
   id: string;
@@ -9,7 +11,14 @@ export interface TopHashtag {
 }
 
 class HashtagsService {
-  async top(projectId: string | undefined, limit: number): Promise<TopHashtag[]> {
+  async top(projectId: string | undefined, limit: number, userId: string): Promise<TopHashtag[]> {
+    let projectClause: Prisma.Sql;
+    if (projectId) {
+      await requireOwnedProject(userId, projectId);
+      projectClause = Prisma.sql`AND v."projectId" = ${projectId}`;
+    } else {
+      projectClause = Prisma.sql`AND v."projectId" IN (SELECT p."id" FROM "Project" p WHERE p."createdById" = ${userId})`;
+    }
     const rows = await getPrisma().$queryRaw<
       Array<{
         id: string;
@@ -22,7 +31,7 @@ class HashtagsService {
       FROM "Hashtag" h
       JOIN "VideoHashtag" vh ON vh."hashtagId" = h."id"
       JOIN "Video" v ON v."id" = vh."videoId"
-      WHERE (${projectId}::text IS NULL OR v."projectId" = ${projectId})
+      WHERE 1 = 1 ${projectClause}
       GROUP BY h."id", h."name", h."normalizedName"
       ORDER BY "usage" DESC, h."name" ASC
       LIMIT ${limit}
@@ -30,11 +39,15 @@ class HashtagsService {
     return rows;
   }
 
-  async getById(id: string) {
-    const hashtag = await getPrisma().hashtag.findUnique({
-      where: { id },
+  async getById(id: string, userId: string) {
+    const hashtag = await getPrisma().hashtag.findFirst({
+      where: {
+        id,
+        videos: { some: { video: { project: { createdById: userId } } } },
+      },
       include: {
         videos: {
+          where: { video: { project: { createdById: userId } } },
           orderBy: { video: { publishedAt: "desc" } },
           take: 20,
           include: {

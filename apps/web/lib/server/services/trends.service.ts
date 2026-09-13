@@ -3,6 +3,7 @@ import { notFound } from "@/lib/server/http";
 import { buildPagination, paginationParams } from "@/lib/server/utils";
 import { trendScoreService } from "./trend-score.service";
 import type { TrendType } from "@traveltok/database";
+import { ownedProjectWhere, requireOwnedProject } from "@/lib/server/authz";
 
 export interface CreateTrendInput {
   projectId: string;
@@ -19,24 +20,25 @@ export interface CreateTrendInput {
 }
 
 class TrendsService {
-  async create(input: CreateTrendInput) {
+  async create(input: CreateTrendInput, userId: string) {
     const prisma = getPrisma();
+    const projectId = await requireOwnedProject(userId, input.projectId);
     const periodStart = input.periodStart ?? new Date();
     const periodEnd = input.periodEnd ?? new Date(periodStart.getTime() + 7 * 86400000);
 
     let computed: Awaited<ReturnType<typeof trendScoreService.score>> | null = null;
     try {
       computed = await trendScoreService.score({
-        projectId: input.projectId,
+        projectId,
         keyword: input.keyword,
-      });
+      }, userId);
     } catch {
       computed = null;
     }
 
     return prisma.trend.create({
       data: {
-        projectId: input.projectId,
+        projectId,
         keyword: input.keyword as string,
         type: input.type ?? "TOPIC",
         trendScore: input.trendScore ?? computed?.trendScore ?? null,
@@ -55,10 +57,14 @@ class TrendsService {
     page: number,
     pageSize: number,
     filters: { projectId?: string; type?: TrendType; from?: Date },
+    userId: string,
   ) {
     const prisma = getPrisma();
+    const projectWhere = filters.projectId
+      ? { projectId: await requireOwnedProject(userId, filters.projectId) }
+      : ownedProjectWhere(userId);
     const where = {
-      ...(filters.projectId ? { projectId: filters.projectId } : {}),
+      ...projectWhere,
       ...(filters.type ? { type: filters.type } : {}),
       ...(filters.from ? { periodStart: { gte: filters.from } } : {}),
     };
@@ -73,12 +79,12 @@ class TrendsService {
     return buildPagination(items, total, page, pageSize);
   }
 
-  async getById(id: string) {
+  async getById(id: string, userId: string) {
     const trend = await getPrisma().trend.findUnique({
       where: { id },
-      include: { project: { select: { id: true, name: true } } },
+      include: { project: { select: { id: true, name: true, createdById: true } } },
     });
-    if (!trend) {
+    if (!trend || trend.project.createdById !== userId) {
       throw notFound("Trend not found");
     }
     return trend;

@@ -1,5 +1,6 @@
 import { getPrisma } from "@/lib/server/prisma";
 import { badRequest } from "@/lib/server/http";
+import { requireOwnedProject } from "@/lib/server/authz";
 
 export interface TrendWeights {
   growth: number;
@@ -135,22 +136,28 @@ class TrendScoreService {
     };
   }
 
-  async score(query: TrendScoreQuery): Promise<TrendScoreResult> {
+  async score(query: TrendScoreQuery, userId: string): Promise<TrendScoreResult> {
     const keyword = query.keyword?.trim();
     const hashtag = query.hashtag?.trim();
     if (!keyword && !hashtag) {
       throw badRequest("Provide at least one of `keyword` or `hashtag`.");
     }
+    const projectId = query.projectId
+      ? await requireOwnedProject(userId, query.projectId)
+      : undefined;
     const periodDays = query.periodDays ?? 30;
     const recentFrom = new Date(Date.now() - periodDays * 86400000);
     const prisma = getPrisma();
 
-    const videoWhere = { isSeedData: false, ...(query.projectId ? { projectId: query.projectId } : {}) };
+    const videoWhere = {
+      isSeedData: false,
+      ...(projectId ? { projectId } : { project: { createdById: userId } }),
+    };
     const creatorWhere = {
       isSeedData: false,
-      ...(query.projectId
-        ? { videos: { some: { projectId: query.projectId } } }
-        : { videos: { some: {} } }),
+      ...(projectId
+        ? { videos: { some: { projectId } } }
+        : { videos: { some: { project: { createdById: userId } } } }),
     };
 
     const [totalVideos, totalCreators] = await Promise.all([
@@ -159,9 +166,10 @@ class TrendScoreService {
     ]);
 
     const matching = await this.findMatchingVideos(
-      query.projectId,
+      projectId,
       keyword,
       hashtag,
+      userId,
     );
 
     const matchingCreators = new Set(matching.map((v) => v.creatorId)).size;
@@ -210,6 +218,7 @@ class TrendScoreService {
     projectId: string | undefined,
     keyword: string | undefined,
     hashtag: string | undefined,
+    userId: string,
   ) {
     const normalized =
       hashtag && hashtag.length > 0 ? normalizeHashtag(hashtag) : undefined;
@@ -233,8 +242,12 @@ class TrendScoreService {
       });
     }
 
-    const where: Record<string, unknown> = { isSeedData: false };
-    if (projectId) where.projectId = projectId;
+    const where: Record<string, unknown> = {
+      isSeedData: false,
+      ...(projectId
+        ? { projectId }
+        : { project: { createdById: userId } }),
+    };
     if (conditions.length > 0) where.OR = conditions;
 
     return getPrisma().video.findMany({

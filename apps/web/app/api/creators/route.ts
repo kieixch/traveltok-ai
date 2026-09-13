@@ -2,7 +2,7 @@ import { route } from "@/lib/server/route";
 import { creatorsService } from "@/lib/server/services/creators.service";
 import { pageParams } from "@/lib/server/utils";
 
-export const GET = route(async ({ query }) => {
+export const GET = route(async ({ user, query }) => {
   const { page, pageSize, order } = pageParams(query);
   const min = (name: string): number | undefined => {
     const raw = query.get(name);
@@ -16,5 +16,5 @@ export const GET = route(async ({ query }) => {
     minFollowers: min("minFollowers"),
     minViews: min("minViews"),
     minEngagement: min("minEngagement"),
-  });
+  }, user.userId);
 });

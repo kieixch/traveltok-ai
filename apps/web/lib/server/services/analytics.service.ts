@@ -1,5 +1,6 @@
 import { Prisma } from "@traveltok/database";
 import { getPrisma } from "@/lib/server/prisma";
+import { requireOwnedProject } from "@/lib/server/authz";
 
 export interface Overview {
   projectId: string;
@@ -66,8 +67,16 @@ export interface HashtagPerformance {
 
 const toNumber = (value: bigint | number): number => Number(value);
 
-/** CTE resolving the latest metric snapshot per video, optionally scoped to one project. */
-function latestMetricCte(projectId?: string): Prisma.Sql {
+/** CTE resolving the latest metric snapshot per video, scoped to a specific project or the caller's projects. */
+function latestMetricCte(projectId?: string, userId?: string): Prisma.Sql {
+  let projectFilter: Prisma.Sql;
+  if (projectId) {
+    projectFilter = Prisma.sql`AND v."projectId" = ${projectId}`;
+  } else if (userId) {
+    projectFilter = Prisma.sql`AND v."projectId" IN (SELECT p."id" FROM "Project" p WHERE p."createdById" = ${userId})`;
+  } else {
+    projectFilter = Prisma.empty;
+  }
   return Prisma.sql`
     latest AS (
       SELECT DISTINCT ON (m."videoId")
@@ -75,22 +84,24 @@ function latestMetricCte(projectId?: string): Prisma.Sql {
         m."saves", m."engagementRate"
       FROM "VideoMetric" m
       JOIN "Video" v ON v."id" = m."videoId"
-      WHERE v."isSeedData" = FALSE
-        AND (${projectId}::text IS NULL OR v."projectId" = ${projectId ?? ""})
+      WHERE v."isSeedData" = FALSE ${projectFilter}
       ORDER BY m."videoId", m."collectedAt" DESC
     )
   `;
 }
 
 class AnalyticsService {
-  async overview(projectId?: string): Promise<Overview> {
+  async overview(projectId: string | undefined, userId: string): Promise<Overview> {
+    if (projectId) {
+      await requireOwnedProject(userId, projectId);
+    }
     const prisma = getPrisma();
     const since30d = new Date(Date.now() - 30 * 86400000);
-    const videoWhere = { isSeedData: false, ...(projectId ? { projectId } : {}) };
-    const creatorWhere = { isSeedData: false, ...(projectId ? { videos: { some: { projectId } } } : { videos: { some: {} } }) };
-    const hashtagWhere = { isSeedData: false, ...(projectId ? { videos: { some: { video: { projectId } } } } : { videos: { some: {} } }) };
-    const jobWhere = { isSeedData: false, ...(projectId ? { projectId, status: "COMPLETED" as const } : { status: "COMPLETED" as const }) };
-    const recentWhere = { isSeedData: false, ...(projectId ? { projectId, publishedAt: { gte: since30d } } : { publishedAt: { gte: since30d } }) };
+    const videoWhere = { isSeedData: false, ...(projectId ? { projectId } : { project: { createdById: userId } }) };
+    const creatorWhere = { isSeedData: false, ...(projectId ? { videos: { some: { projectId } } } : { videos: { some: { project: { createdById: userId } } } }) };
+    const hashtagWhere = { isSeedData: false, ...(projectId ? { videos: { some: { video: { projectId } } } } : { videos: { some: { video: { project: { createdById: userId } } } } }) };
+    const jobWhere = { isSeedData: false, ...(projectId ? { projectId, status: "COMPLETED" as const } : { status: "COMPLETED" as const, project: { createdById: userId } }) };
+    const recentWhere = { isSeedData: false, ...(projectId ? { projectId, publishedAt: { gte: since30d } } : { project: { createdById: userId }, publishedAt: { gte: since30d } }) };
 
     const [videoCount, creatorCount, hashtagCount, completedJobs, videosLast30d, aggregate, topVideo, topCreator] =
       await Promise.all([
@@ -99,9 +110,9 @@ class AnalyticsService {
         prisma.hashtag.count({ where: hashtagWhere }),
         prisma.scrapingJob.count({ where: jobWhere }),
         prisma.video.count({ where: recentWhere }),
-        this.aggregateMetrics(projectId),
-        this.topVideo(projectId),
-        this.topCreator(projectId),
+        this.aggregateMetrics(projectId, userId),
+        this.topVideo(projectId, userId),
+        this.topCreator(projectId, userId),
       ]);
 
     return {
@@ -123,7 +134,7 @@ class AnalyticsService {
     };
   }
 
-  private async aggregateMetrics(projectId?: string) {
+  private async aggregateMetrics(projectId?: string, userId?: string) {
     const rows = await getPrisma().$queryRaw<
       Array<{
         videoCount: number;
@@ -136,7 +147,7 @@ class AnalyticsService {
         avgEngagementRate: number;
       }>
     >`
-      WITH ${latestMetricCte(projectId)}
+      WITH ${latestMetricCte(projectId, userId)}
       SELECT
         COUNT(*)::int AS "videoCount",
         COALESCE(SUM("views"), 0)::bigint AS "totalViews",
@@ -155,7 +166,7 @@ class AnalyticsService {
     return rows[0];
   }
 
-  private async topVideo(projectId?: string) {
+  private async topVideo(projectId?: string, userId?: string) {
     const rows = await getPrisma().$queryRaw<
       Array<{
         id: string;
@@ -165,7 +176,7 @@ class AnalyticsService {
         creatorUsername: string | null;
       }>
     >`
-      WITH ${latestMetricCte(projectId)}
+      WITH ${latestMetricCte(projectId, userId)}
       SELECT
         v."id", v."caption", v."url",
         lm."views",
@@ -187,7 +198,7 @@ class AnalyticsService {
     };
   }
 
-  private async topCreator(projectId?: string) {
+  private async topCreator(projectId?: string, userId?: string) {
     const rows = await getPrisma().$queryRaw<
       Array<{
         id: string;
@@ -203,7 +214,9 @@ class AnalyticsService {
       FROM "Creator" c
       JOIN "Video" v ON v."creatorId" = c."id"
         AND v."isSeedData" = FALSE
-        AND (${projectId}::text IS NULL OR v."projectId" = ${projectId ?? ""})
+        AND ${projectId
+          ? Prisma.sql`v."projectId" = ${projectId}`
+          : Prisma.sql`v."projectId" IN (SELECT p."id" FROM "Project" p WHERE p."createdById" = ${userId ?? ""})`}
       WHERE c."isSeedData" = FALSE
       GROUP BY c."id", c."username", c."profileUrl", c."followers"
       ORDER BY c."followers" DESC NULLS LAST
@@ -225,7 +238,11 @@ class AnalyticsService {
     from: Date | undefined,
     to: Date | undefined,
     bucket: "day" | "week" | "month" = "day",
+    userId: string,
   ): Promise<EngagementBucket[]> {
+    if (projectId) {
+      await requireOwnedProject(userId, projectId);
+    }
     const rows = await getPrisma().$queryRaw<
       Array<{
         bucket: Date;
@@ -237,7 +254,7 @@ class AnalyticsService {
         avgEngagementRate: number;
       }>
     >`
-      WITH ${latestMetricCte(projectId)}
+      WITH ${latestMetricCte(projectId, userId)}
       SELECT
         date_trunc(${bucket}, v."publishedAt") AS "bucket",
         COUNT(*)::int AS "count",
@@ -270,7 +287,11 @@ class AnalyticsService {
     projectId: string | undefined,
     sort: "followers" | "engagement" | "views" = "followers",
     limit = 10,
+    userId: string,
   ): Promise<TopCreator[]> {
+    if (projectId) {
+      await requireOwnedProject(userId, projectId);
+    }
     const orderBy =
       sort === "engagement"
         ? `"avgEngagementRate" DESC NULLS LAST`
@@ -293,7 +314,7 @@ class AnalyticsService {
         avgEngagementRate: number;
       }>
     >`
-      WITH ${latestMetricCte(projectId)}
+      WITH ${latestMetricCte(projectId, userId)}
       SELECT
         c."id", c."externalId", c."username", c."displayName", c."profileUrl", c."avatarUrl",
         c."followers",
@@ -308,7 +329,9 @@ class AnalyticsService {
       FROM "Creator" c
       JOIN "Video" v ON v."creatorId" = c."id"
         AND v."isSeedData" = FALSE
-        AND (${projectId}::text IS NULL OR v."projectId" = ${projectId ?? ""})
+        AND ${projectId
+          ? Prisma.sql`v."projectId" = ${projectId}`
+          : Prisma.sql`v."projectId" IN (SELECT p."id" FROM "Project" p WHERE p."createdById" = ${userId ?? ""})`}
       LEFT JOIN latest lm ON lm."videoId" = v."id"
       WHERE c."isSeedData" = FALSE
       GROUP BY c."id", c."externalId", c."username", c."displayName",
@@ -323,7 +346,10 @@ class AnalyticsService {
     }));
   }
 
-  async hashtagPerformance(projectId: string | undefined, limit = 10): Promise<HashtagPerformance[]> {
+  async hashtagPerformance(projectId: string | undefined, limit = 10, userId: string): Promise<HashtagPerformance[]> {
+    if (projectId) {
+      await requireOwnedProject(userId, projectId);
+    }
     const rows = await getPrisma().$queryRaw<
       Array<{
         id: string;
@@ -334,7 +360,7 @@ class AnalyticsService {
         avgEngagementRate: number;
       }>
     >`
-      WITH ${latestMetricCte(projectId)}
+      WITH ${latestMetricCte(projectId, userId)}
       SELECT
         h."id", h."name", h."normalizedName",
         COUNT(DISTINCT v."id")::int AS "videoCount",
@@ -345,7 +371,9 @@ class AnalyticsService {
       JOIN "VideoHashtag" vh ON vh."hashtagId" = h."id"
       JOIN "Video" v ON v."id" = vh."videoId"
         AND v."isSeedData" = FALSE
-        AND (${projectId}::text IS NULL OR v."projectId" = ${projectId ?? ""})
+        AND ${projectId
+          ? Prisma.sql`v."projectId" = ${projectId}`
+          : Prisma.sql`v."projectId" IN (SELECT p."id" FROM "Project" p WHERE p."createdById" = ${userId ?? ""})`}
       LEFT JOIN latest lm ON lm."videoId" = v."id"
       WHERE h."isSeedData" = FALSE
       GROUP BY h."id", h."name", h."normalizedName"

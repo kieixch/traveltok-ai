@@ -1,7 +1,8 @@
 import { getPrisma } from "@/lib/server/prisma";
-import { forbidden, notFound } from "@/lib/server/http";
+import { notFound } from "@/lib/server/http";
 import { buildPagination, paginationParams } from "@/lib/server/utils";
 import { Prisma, type ContentIdeaStatus } from "@traveltok/database";
+import { ownedProjectWhere, requireOwnedProject } from "@/lib/server/authz";
 
 export interface CreateContentIdeaInput {
   projectId: string;
@@ -39,10 +40,11 @@ const sourceVideoInclude = {
 } as const;
 
 class ContentIdeasService {
-  create(input: CreateContentIdeaInput) {
+  async create(input: CreateContentIdeaInput, userId: string) {
+    const projectId = await requireOwnedProject(userId, input.projectId);
     return getPrisma().contentIdea.create({
       data: {
-        projectId: input.projectId,
+        projectId,
         title: input.title,
         topic: input.topic,
         destination: input.destination,
@@ -63,10 +65,14 @@ class ContentIdeasService {
     page: number,
     pageSize: number,
     filters: { projectId?: string; status?: ContentIdeaStatus },
+    userId: string,
   ) {
     const prisma = getPrisma();
+    const projectWhere = filters.projectId
+      ? { projectId: await requireOwnedProject(userId, filters.projectId) }
+      : ownedProjectWhere(userId);
     const where = {
-      ...(filters.projectId ? { projectId: filters.projectId } : {}),
+      ...projectWhere,
       ...(filters.status ? { status: filters.status } : {}),
     };
     const [items, total] = await prisma.$transaction([
@@ -81,7 +87,8 @@ class ContentIdeasService {
     return buildPagination(items, total, page, pageSize);
   }
 
-  listForVideo(videoId: string) {
+  async listForVideo(videoId: string, userId: string) {
+    await this.assertVideoOwned(videoId, userId);
     return getPrisma().contentIdea.findMany({
       where: { sourceVideoId: videoId },
       orderBy: { createdAt: "desc" },
@@ -89,45 +96,41 @@ class ContentIdeasService {
     });
   }
 
-  async getById(id: string) {
+  async getById(id: string, userId: string) {
     const idea = await getPrisma().contentIdea.findUnique({
       where: { id },
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, createdById: true } },
         planItems: { select: { id: true, contentPlanId: true, status: true } },
       },
     });
-    if (!idea) {
+    if (!idea || idea.project.createdById !== userId) {
       throw notFound("Content idea not found");
     }
     return idea;
   }
 
-  async update(id: string, dto: UpdateContentIdeaInput) {
-    await this.getById(id);
+  async update(id: string, dto: UpdateContentIdeaInput, userId: string) {
+    await this.getById(id, userId);
     return getPrisma().contentIdea.update({
       where: { id },
       data: dto as unknown as Prisma.ContentIdeaUpdateInput,
     });
   }
 
-  async remove(id: string, userId?: string) {
-    await this.assertOwned(id, userId);
+  async remove(id: string, userId: string) {
+    await this.getById(id, userId);
     return getPrisma().contentIdea.delete({ where: { id } });
   }
 
-  private async assertOwned(id: string, userId?: string) {
-    const idea = await getPrisma().contentIdea.findUnique({
-      where: { id },
-      include: { project: { select: { createdById: true } } },
+  private async assertVideoOwned(videoId: string, userId: string) {
+    const video = await getPrisma().video.findFirst({
+      where: { id: videoId, project: { createdById: userId } },
+      select: { id: true },
     });
-    if (!idea) {
-      throw notFound("Content idea not found");
+    if (!video) {
+      throw notFound("Video not found");
     }
-    if (userId && idea.project.createdById !== userId) {
-      throw forbidden("You do not own this content idea");
-    }
-    return idea;
   }
 }
 

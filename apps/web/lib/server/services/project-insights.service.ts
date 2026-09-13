@@ -1,13 +1,10 @@
 import { getPrisma } from "@/lib/server/prisma";
 import { notFound } from "@/lib/server/http";
-import {
-  createInsightsGenerator,
-  type AIConfig,
-  type ProjectInsight,
-} from "@traveltok/ai";
+import { createInsightsGenerator, type AIConfig, type ProjectInsight } from "@traveltok/ai";
 import { getAIConfig } from "@/lib/server/ai";
 import { analyticsService } from "./analytics.service";
 import { aiRuntimeService } from "./ai-runtime.service";
+import { requireOwnedProject } from "@/lib/server/authz";
 
 class ProjectInsightsService {
   private readonly config: AIConfig;
@@ -18,6 +15,7 @@ class ProjectInsightsService {
 
   /** Aggregates project analytics and asks the AI engine for a strategy review. */
   async insights(userId: string, projectId: string): Promise<ProjectInsight> {
+    await requireOwnedProject(userId, projectId);
     const project = await getPrisma().project.findUnique({
       where: { id: projectId },
       select: { id: true, name: true },
@@ -26,8 +24,8 @@ class ProjectInsightsService {
       throw notFound("Project not found");
     }
 
-    const overview = await analyticsService.overview(projectId);
-    const hashtags = await analyticsService.hashtagPerformance(projectId, 5);
+    const overview = await analyticsService.overview(projectId, userId);
+    const hashtags = await analyticsService.hashtagPerformance(projectId, 5, userId);
     const mode = await aiRuntimeService.modeFor(userId);
     const model = await aiRuntimeService.modelFor(userId, mode);
     const generator = createInsightsGenerator(this.config, mode, model);

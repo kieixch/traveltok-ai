@@ -25,8 +25,8 @@ class AiAnalysisService {
    */
   async analyzeVideo(userId: string, videoId: string) {
     const prisma = getPrisma();
-    const video = await prisma.video.findUnique({
-      where: { id: videoId },
+    const video = await prisma.video.findFirst({
+      where: { id: videoId, project: { createdById: userId } },
       include: {
         creator: { select: { username: true } },
         hashtags: { include: { hashtag: { select: { name: true } } } },
@@ -77,10 +77,10 @@ class AiAnalysisService {
     });
   }
 
-  async listAnalyses(videoId: string, page: number, pageSize: number) {
+  async listAnalyses(userId: string, videoId: string, page: number, pageSize: number) {
     const prisma = getPrisma();
-    const video = await prisma.video.findUnique({
-      where: { id: videoId },
+    const video = await prisma.video.findFirst({
+      where: { id: videoId, project: { createdById: userId } },
       select: { id: true },
     });
     if (!video) {

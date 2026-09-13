@@ -4,7 +4,7 @@ import { errs, isEmail, isString, minLength, maxLength, matches } from "@/lib/se
 
 const PASSWORD_RE = /^(?=.*[A-Za-z])(?=.*\d).+$/;
 
-export const POST = route(async ({ body }) => {
+export const POST = route(async ({ request, body }) => {
   const dto = (body ?? {}) as Record<string, unknown>;
   errs([
     isString(dto.name, "name"),
@@ -23,9 +23,12 @@ export const POST = route(async ({ body }) => {
       "Password must contain at least one letter and one number",
     ),
   ]);
-  return authService.register({
-    name: String(dto.name),
-    email: String(dto.email),
-    password: String(dto.password),
-  });
+  return authService.register(
+    {
+      name: String(dto.name),
+      email: String(dto.email),
+      password: String(dto.password),
+    },
+    new URL(request.url).origin,
+  );
 }, { public: true });

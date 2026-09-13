@@ -1,10 +1,12 @@
 import { route } from "@/lib/server/route";
 import { getPrisma } from "@/lib/server/prisma";
+import { requireOwnedProject } from "@/lib/server/authz";
 
-export const GET = route(async ({ params }) => {
+export const GET = route(async ({ user, params }) => {
+  const projectId = await requireOwnedProject(user.userId, params.id);
   const rows = await getPrisma().video.findMany({
     where: {
-      projectId: params.id,
+      projectId,
       isSeedData: false,
       analyses: { some: {} },
     },

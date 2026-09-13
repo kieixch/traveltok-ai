@@ -2,6 +2,7 @@ import { Prisma } from "@traveltok/database";
 import { getPrisma } from "@/lib/server/prisma";
 import { notFound } from "@/lib/server/http";
 import { allowedSort, buildPagination, paginationParams } from "@/lib/server/utils";
+import { ownedProjectWhere, ownedVideosSql, requireOwnedProject } from "@/lib/server/authz";
 
 const SORTABLE = [
   "scrapedAt",
@@ -43,11 +44,15 @@ export class VideosService {
     sort: string,
     order: "asc" | "desc",
     filters: VideoListFilters,
+    userId: string,
   ) {
     const prisma = getPrisma();
+    const projectWhere = filters.projectId
+      ? { projectId: await requireOwnedProject(userId, filters.projectId) }
+      : ownedProjectWhere(userId);
     const where = {
       isSeedData: false,
-      ...(filters.projectId ? { projectId: filters.projectId } : {}),
+      ...projectWhere,
       ...(filters.search
         ? { caption: { contains: filters.search, mode: "insensitive" as const } }
         : {}),
@@ -55,7 +60,7 @@ export class VideosService {
     const sortBy = allowedSort(sort, SORTABLE, "publishedAt");
 
     if (METRIC_SORT.has(sortBy)) {
-      return this.listSortedByMetric(page, pageSize, sortBy as MetricSortField, order, filters);
+      return this.listSortedByMetric(page, pageSize, sortBy as MetricSortField, order, filters, userId);
     }
 
     const [items, total] = await prisma.$transaction([
@@ -76,11 +81,15 @@ export class VideosService {
     sortBy: MetricSortField,
     order: "asc" | "desc",
     filters: VideoListFilters,
+    userId: string,
   ) {
     const prisma = getPrisma();
+    if (filters.projectId) {
+      await requireOwnedProject(userId, filters.projectId);
+    }
     const where = {
       isSeedData: false,
-      ...(filters.projectId ? { projectId: filters.projectId } : {}),
+      ...(filters.projectId ? { projectId: filters.projectId } : ownedProjectWhere(userId)),
       ...(filters.search
         ? { caption: { contains: filters.search, mode: "insensitive" as const } }
         : {}),
@@ -89,6 +98,8 @@ export class VideosService {
     const conditions: Prisma.Sql[] = [Prisma.sql`v."isSeedData" = false`];
     if (filters.projectId) {
       conditions.push(Prisma.sql`v."projectId" = ${filters.projectId}`);
+    } else {
+      conditions.push(ownedVideosSql("projectId", userId));
     }
     if (filters.search) {
       conditions.push(Prisma.sql`v."caption" ILIKE ${`%${filters.search}%`}`);
@@ -125,18 +136,18 @@ export class VideosService {
     return buildPagination(items, total, page, pageSize);
   }
 
-  async getById(id: string) {
+  async getById(id: string, userId: string) {
     const video = await getPrisma().video.findUnique({
       where: { id },
       include: {
         creator: { select: { ...creatorSelect, profileUrl: true } },
-        project: { select: { id: true, name: true, niche: true } },
+        project: { select: { id: true, name: true, niche: true, createdById: true } },
         metrics: { orderBy: { collectedAt: "asc" } },
         hashtags: { include: { hashtag: true } },
         analyses: { orderBy: { createdAt: "desc" } },
       },
     });
-    if (!video) {
+    if (!video || video.project.createdById !== userId) {
       throw notFound("Video not found");
     }
     return video;

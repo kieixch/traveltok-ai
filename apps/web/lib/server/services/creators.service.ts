@@ -2,6 +2,7 @@ import { Prisma } from "@traveltok/database";
 import { getPrisma } from "@/lib/server/prisma";
 import { notFound } from "@/lib/server/http";
 import { allowedSort, buildPagination } from "@/lib/server/utils";
+import { requireOwnedProject } from "@/lib/server/authz";
 
 const SORTABLE = [
   "followers",
@@ -40,16 +41,19 @@ class CreatorsService {
     sort: string,
     order: "asc" | "desc",
     filters: CreatorListFilters = {},
+    userId: string,
   ) {
     const prisma = getPrisma();
     const { search, projectId, minFollowers, minViews, minEngagement } = filters;
 
-    const projectIdClause = projectId
-      ? Prisma.sql`AND v."projectId" = ${projectId}`
-      : Prisma.empty;
+    if (projectId) {
+      await requireOwnedProject(userId, projectId);
+    }
+
+    const ownedScope = Prisma.sql`v."projectId" IN (SELECT p."id" FROM "Project" p WHERE p."createdById" = ${userId})`;
     const videoJoin = projectId
-      ? Prisma.sql`JOIN "Video" v ON v."creatorId" = c."id" AND v."isSeedData" = false ${projectIdClause}`
-      : Prisma.sql`LEFT JOIN "Video" v ON v."creatorId" = c."id" AND v."isSeedData" = false`;
+      ? Prisma.sql`JOIN "Video" v ON v."creatorId" = c."id" AND v."isSeedData" = false AND v."projectId" = ${projectId}`
+      : Prisma.sql`JOIN "Video" v ON v."creatorId" = c."id" AND v."isSeedData" = false AND ${ownedScope}`;
     const searchClause = search
       ? Prisma.sql`AND (c."username" ILIKE ${`%${search}%`} OR c."displayName" ILIKE ${`%${search}%`})`
       : Prisma.empty;
@@ -166,9 +170,9 @@ class CreatorsService {
     return buildPagination(items, total, page, pageSize);
   }
 
-  async getById(id: string) {
-    const creator = await getPrisma().creator.findUnique({
-      where: { id },
+  async getById(id: string, userId: string) {
+    const creator = await getPrisma().creator.findFirst({
+      where: { id, videos: { some: { project: { createdById: userId } } } },
       select: {
         id: true,
         externalId: true,
