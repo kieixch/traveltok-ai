@@ -22,6 +22,7 @@ import { IdeasIcon, ScrapeIcon, SparklesIcon, VideoIcon } from "@/components/ico
 import { api, formatNumber } from "@/lib/api";
 import { friendlyError } from "@/lib/friendlyError";
 import { getProjectId } from "@/lib/auth";
+import { startAnalyze, useAnalyzeState } from "@/lib/analyze-store";
 import { useApi } from "@/lib/useApi";
 import { CONTENT_FORMATS, CONTENT_LANGUAGES } from "@/lib/types";
 import type { ContentIdea, Paginated } from "@/lib/types";
@@ -285,9 +286,8 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
-  const [analyzingAll, setAnalyzingAll] = useState(false);
-  const [analyzeProgress, setAnalyzeProgress] = useState<{ done: number; total: number } | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+  const analyzeState = useAnalyzeState();
 
   const videosPath = projectId
     ? `/videos?projectId=${projectId}&page=${page}&pageSize=20&sort=scrapedAt&order=desc`
@@ -316,29 +316,15 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
     }
   };
 
-  const analyzeAll = async () => {
+  const analyzeAll = () => {
     if (!videos.data) return;
-    const ids = videos.data.items.filter((v) => !analyzedMap.has(v.id)).map((v) => v.id).slice(0, 20);
+    const ids = videos.data.items.filter((v) => !analyzedMap.has(v.id)).map((v) => v.id);
     if (ids.length === 0) {
       setSuccess("Semua video di halaman ini sudah dianalisis.");
       return;
     }
-    setAnalyzingAll(true);
-    setError(null);
     setSuccess(null);
-    setAnalyzeProgress({ done: 0, total: ids.length });
-    try {
-      for (const [index, id] of ids.entries()) {
-        await api(`/videos/${id}/analyze`, { method: "POST" });
-        setAnalyzeProgress({ done: index + 1, total: ids.length });
-      }
-      await analyzed.refresh();
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setAnalyzingAll(false);
-      setAnalyzeProgress(null);
-    }
+    startAnalyze(ids);
   };
 
   const items = videos.data?.items ?? [];
@@ -359,18 +345,19 @@ function GetIdeasTab({ projectId }: { projectId: string | null }) {
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <Button
-              onClick={() => void analyzeAll()}
-              loading={analyzingAll}
-              disabled={!projectId || items.length === 0}
+              onClick={() => analyzeAll()}
+              loading={analyzeState.running}
+              disabled={!projectId || items.length === 0 || analyzeState.running}
             >
               <ScrapeIcon style={{ width: 16, height: 16 }} />
               Analyze videos
             </Button>
           </div>
         </div>
-        {analyzeProgress && (
+        {analyzeState.running && (
           <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            Menganalisis video {analyzeProgress.done} / {analyzeProgress.total}…
+            Menganalisis video {analyzeState.done} / {analyzeState.total} — bisa berpindah halaman,
+            berjalan terus sampai dihentikan.
           </p>
         )}
         {error && (

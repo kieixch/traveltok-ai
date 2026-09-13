@@ -29,6 +29,7 @@ import {
 import { AiEngineSelect } from "./AiEngineSelect";
 import { ThemeToggle } from "./ThemeToggle";
 import { ScrapingNotification } from "./ScrapingNotification";
+import { AnalyzeNotification } from "./AnalyzeNotification";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: DashboardIcon },
@@ -291,6 +292,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
 
       <ScrapingNotification />
+      <AnalyzeNotification />
     </div>
   );
 }
