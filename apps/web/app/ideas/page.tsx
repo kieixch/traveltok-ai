@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { RequireAuth } from "@/components/RequireAuth";
 import { ProjectSelect } from "@/components/ProjectSelect";
 import {
@@ -712,6 +713,19 @@ function IdeasInner() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
   const [ideasPage, setIdeasPage] = useState(1);
+  const [targetIdeaId, setTargetIdeaId] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get("idea") ?? null,
+  );
+  const router = useRouter();
+
+  const targetIdea = useApi<ContentIdea>(
+    targetIdeaId ? `/content-ideas/${targetIdeaId}` : null,
+  );
+
+  const clearTarget = () => {
+    setTargetIdeaId(null);
+    router.replace(window.location.pathname);
+  };
 
   const ideas = useApi<Paginated<ContentIdea>>(
     projectId
@@ -834,6 +848,39 @@ function IdeasInner() {
           </Card>
 
           <div>
+            {targetIdeaId && (
+              <div className="mb-4">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                    Ditandai dari Content Planner
+                  </p>
+                  <button
+                    onClick={clearTarget}
+                    className="text-xs font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+                  >
+                    Hapus penanda
+                  </button>
+                </div>
+                {targetIdea.loading ? (
+                  <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-6 text-sm text-slate-500 dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-400">
+                    <Spinner className="h-4 w-4" /> Mencari ide yang dituju…
+                  </div>
+                ) : targetIdea.error ? (
+                  <Alert kind="error">{targetIdea.error}</Alert>
+                ) : targetIdea.data ? (
+                  <div className="rounded-2xl ring-2 ring-emerald-500/60">
+                    <IdeaCard
+                      idea={targetIdea.data}
+                      onDeleted={() => {
+                        clearTarget();
+                        void ideas.refresh();
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            )}
+
             {ideas.loading ? (
               <div className="flex justify-center py-16 text-slate-500 dark:text-slate-400">
                 <Spinner className="h-6 w-6" />

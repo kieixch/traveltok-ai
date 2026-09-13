@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { RequireAuth } from "@/components/RequireAuth";
 import { ProjectSelect } from "@/components/ProjectSelect";
 import {
@@ -109,9 +110,20 @@ function PlanCard({ plan, onDeleted }: { plan: ContentPlan; onDeleted: () => voi
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-white/[0.03] px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {item.title}
-                    </p>
+                    {item.contentIdeaId ? (
+                      <Link
+                        href={`/ideas?idea=${item.contentIdeaId}`}
+                        title="Open the source idea"
+                        className="group flex items-center gap-1.5 truncate text-sm font-medium text-slate-900 hover:text-emerald-600 dark:text-slate-100 dark:hover:text-emerald-400"
+                      >
+                        <span className="truncate">{item.title}</span>
+                        <span className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100">→</span>
+                      </Link>
+                    ) : (
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {item.title}
+                      </p>
+                    )}
                     {item.caption && (
                       <p className="truncate text-xs text-slate-500 dark:text-slate-400">{item.caption}</p>
                     )}
