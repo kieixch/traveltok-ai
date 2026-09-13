@@ -1,8 +1,6 @@
-import nodemailer from "nodemailer";
-
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_APP_PASSWORD = process.env.EMAIL_APP_PASSWORD;
-const EMAIL_FROM = process.env.EMAIL_FROM ?? (EMAIL_USER ? `Traveltok AI <${EMAIL_USER}>` : undefined);
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL;
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME ?? "Traveltok AI";
 
 interface SendMailParams {
   to: string;
@@ -13,37 +11,39 @@ interface SendMailParams {
 
 /**
  * Returns true when the email was dispatched to the provider. Returns false
- * (and logs the message so the flow stays usable in dev) when Gmail SMTP is
- * not configured.
+ * (and logs the message so the flow stays usable in dev) when Brevo is not
+ * configured.
  */
 async function sendMail(params: SendMailParams): Promise<boolean> {
-  if (!EMAIL_USER || !EMAIL_APP_PASSWORD) {
+  if (!BREVO_API_KEY || !BREVO_SENDER_EMAIL) {
     // Local/dev fallback: log and report "not sent" instead of failing the flow.
-    console.warn("[email] EMAIL_USER / EMAIL_APP_PASSWORD not set — email NOT delivered.");
+    console.warn("[email] BREVO_API_KEY / BREVO_SENDER_EMAIL not set — email NOT delivered.");
     console.log(
       `[email] To: ${params.to}\nSubject: ${params.subject}\nBody:\n${params.text}`,
     );
     return false;
   }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_APP_PASSWORD,
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "api-key": BREVO_API_KEY,
+      Accept: "application/json",
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify({
+      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+      to: [{ email: params.to }],
+      subject: params.subject,
+      textContent: params.text,
+      htmlContent: params.html,
+    }),
   });
 
-  await transporter.sendMail({
-    from: EMAIL_FROM ?? EMAIL_USER,
-    to: params.to,
-    subject: params.subject,
-    text: params.text,
-    html: params.html,
-  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Email send failed (${res.status}): ${detail.slice(0, 300)}`);
+  }
   return true;
 }
 
