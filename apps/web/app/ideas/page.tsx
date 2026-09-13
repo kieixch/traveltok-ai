@@ -23,7 +23,7 @@ import { IdeasIcon, ScrapeIcon, SparklesIcon, VideoIcon } from "@/components/ico
 import { api, formatNumber } from "@/lib/api";
 import { friendlyError } from "@/lib/friendlyError";
 import { getProjectId } from "@/lib/auth";
-import { startAnalyze, useAnalyzeState } from "@/lib/analyze-store";
+import { startAnalyze, useAnalyzeState } from "@/lib/tasks-store";
 import { useApi } from "@/lib/useApi";
 import { CONTENT_FORMATS, CONTENT_LANGUAGES } from "@/lib/types";
 import type { ContentIdea, Paginated } from "@/lib/types";

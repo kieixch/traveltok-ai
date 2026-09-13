@@ -17,10 +17,10 @@ import {
   PageHeader,
   Spinner,
 } from "@/components/ui";
-import { api, formatPercent } from "@/lib/api";
-import { friendlyError } from "@/lib/friendlyError";
+import { formatPercent } from "@/lib/api";
 import { getProjectId } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
+import { startScoreTrend, useTasks } from "@/lib/tasks-store";
 import type { Paginated, Trend, TrendScoreResult } from "@/lib/types";
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
@@ -45,9 +45,15 @@ function TrendsInner() {
   const [keyword, setKeyword] = useState("");
   const [hashtag, setHashtag] = useState("");
   const [periodDays, setPeriodDays] = useState(30);
-  const [score, setScore] = useState<TrendScoreResult | null>(null);
-  const [scoring, setScoring] = useState(false);
-  const [scoreError, setScoreError] = useState<string | null>(null);
+  const tasks = useTasks();
+  const trendTask = tasks.find((t) => t.kind === "trend");
+  const scoring = trendTask?.status === "running";
+  const score = trendTask && trendTask.status === "done"
+    ? (trendTask.data as TrendScoreResult | undefined) ?? null
+    : null;
+  const scoreError = trendTask && trendTask.status === "failed" && trendTask.error
+    ? trendTask.error
+    : null;
 
   const trends = useApi<Paginated<Trend>>(
     projectId
@@ -55,22 +61,12 @@ function TrendsInner() {
       : `/trends?pageSize=30`,
   );
 
-  const runScore = async () => {
+  const runScore = () => {
     if (!projectId) return;
-    setScoring(true);
-    setScoreError(null);
-    try {
-      setScore(
-        await api<TrendScoreResult>("/analytics/trend-score", {
-          query: { projectId, keyword, hashtag, periodDays },
-        }),
-      );
-    } catch (err) {
-      setScore(null);
-      setScoreError(friendlyError(err));
-    } finally {
-      setScoring(false);
-    }
+    startScoreTrend(
+      { projectId, keyword, hashtag, periodDays },
+      `Score "${keyword || hashtag || "term"}"`,
+    );
   };
 
   return (
@@ -112,7 +108,7 @@ function TrendsInner() {
               )}
             />
           </div>
-          <Button onClick={() => void runScore()} loading={scoring}>
+          <Button onClick={runScore} loading={scoring}>
             Score trend
           </Button>
         </div>

@@ -23,6 +23,7 @@ import {
 import { api, formatDate } from "@/lib/api";
 import { friendlyError } from "@/lib/friendlyError";
 import { getProjectId } from "@/lib/auth";
+import { startGeneratePlan, useTasks } from "@/lib/tasks-store";
 import { useApi } from "@/lib/useApi";
 import { CONTENT_LANGUAGES } from "@/lib/types";
 import type { ContentPlan, ContentPlanDetail, Paginated } from "@/lib/types";
@@ -160,9 +161,8 @@ function PlansInner() {
   const [endDate, setEndDate] = useState(toDateInput(DEFAULT_END));
   const [postsPerWeek, setPostsPerWeek] = useState(3);
   const [language, setLanguage] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
-  const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
+  const tasks = useTasks();
+  const generating = tasks.some((t) => t.kind === "plan" && t.status === "running");
 
   const plans = useApi<Paginated<ContentPlan>>(
     projectId
@@ -170,29 +170,15 @@ function PlansInner() {
       : `/content-plans?pageSize=50`,
   );
 
-  const generate = async () => {
+  const generate = () => {
     if (!projectId) return;
-    setGenerating(true);
-    setGenerateError(null);
-    setGenerateSuccess(null);
-    try {
-      await api("/content-plans/generate", {
-        method: "POST",
-        body: {
-          projectId,
-          startDate,
-          endDate,
-          postsPerWeek,
-          ...(language ? { language } : {}),
-        },
-      });
-      setGenerateSuccess("Rencana konten berhasil dibuat.");
-      await plans.refresh();
-    } catch (err) {
-      setGenerateError(friendlyError(err));
-    } finally {
-      setGenerating(false);
-    }
+    startGeneratePlan({
+      projectId,
+      startDate,
+      endDate,
+      postsPerWeek,
+      ...(language ? { language } : {}),
+    });
   };
 
   return (
@@ -246,16 +232,10 @@ function PlansInner() {
               ]}
             />
           </div>
-          <Button onClick={() => void generate()} loading={generating}>
+          <Button onClick={generate} loading={generating}>
             Generate plan
           </Button>
         </div>
-        {generateError && (
-          <div className="mt-3"><Alert kind="error">{generateError}</Alert></div>
-        )}
-        {generateSuccess && (
-          <div className="mt-3"><Alert kind="success">{generateSuccess}</Alert></div>
-        )}
       </Card>
 
       <div>

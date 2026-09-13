@@ -18,6 +18,7 @@ import {
 import { api, formatNumber } from "@/lib/api";
 import { friendlyError } from "@/lib/friendlyError";
 import { getProjectId } from "@/lib/auth";
+import { startReindex, useTasks } from "@/lib/tasks-store";
 import { useApi } from "@/lib/useApi";
 import type {
   EmbeddingEntityType,
@@ -42,8 +43,13 @@ function SearchInner() {
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [indexing, setIndexing] = useState(false);
-  const [indexNotice, setIndexNotice] = useState<string | null>(null);
+  const tasks = useTasks();
+  const indexTask = tasks.find((t) => t.kind === "index");
+  const indexing = indexTask?.status === "running";
+  const indexNotice = indexTask && indexTask.status === "done" ? indexTask.result : null;
+  const indexError = indexTask && indexTask.status === "failed" && indexTask.error
+    ? indexTask.error
+    : null;
 
   const meta = useApi<SearchIndexMeta>(
     projectId ? `/semantic-search/meta?projectId=${projectId}` : null,
@@ -73,27 +79,9 @@ function SearchInner() {
     }
   };
 
-  const runIndex = async () => {
+  const runIndex = () => {
     if (!projectId) return;
-    setIndexing(true);
-    setIndexNotice(null);
-    try {
-      const result = await api<{
-        videos: number;
-        ideas: number;
-        trends: number;
-        model: string;
-      }>(`/projects/${projectId}/index-embeddings`, { method: "POST" });
-      setIndexNotice(
-        `Indexed ${result.videos} videos, ${result.ideas} ideas, ${result.trends} trends.`,
-      );
-      await meta.refresh();
-    } catch (err) {
-      setIndexNotice(null);
-      setError(friendlyError(err));
-    } finally {
-      setIndexing(false);
-    }
+    startReindex(projectId);
   };
 
   const canSearch = Boolean(projectId) && query.trim().length >= 2;
@@ -133,7 +121,7 @@ function SearchInner() {
           </Button>
           <Button
             variant="secondary"
-            onClick={() => void runIndex()}
+            onClick={runIndex}
             loading={indexing}
             disabled={!projectId}
           >
@@ -164,6 +152,7 @@ function SearchInner() {
           )}
         </div>
         {indexNotice && <div className="mt-3"><Alert kind="success">{indexNotice}</Alert></div>}
+        {indexError && <div className="mt-3"><Alert kind="error">{indexError}</Alert></div>}
       </Card>
 
       {error && <div className="mb-4"><Alert kind="error">{error}</Alert></div>}
