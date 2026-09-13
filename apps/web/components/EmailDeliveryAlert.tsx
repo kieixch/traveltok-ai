@@ -1,9 +1,9 @@
 import { Alert } from "@/components/ui";
 
 /**
- * Shown when the auth email could not actually be dispatched (no
- * RESEND_API_KEY). Displays the fresh verification/reset link directly so the
- * flow stays usable locally, and explains how to enable real delivery.
+ * Shown when the auth email could not actually be dispatched (Gmail SMTP not
+ * configured). Displays the fresh verification/reset link directly so the flow
+ * stays usable locally, and explains how to enable real delivery.
  */
 export function EmailDeliveryAlert({
   link,
@@ -27,9 +27,10 @@ export function EmailDeliveryAlert({
         </a>
       </p>
       <p className="mt-2 text-xs opacity-80">
-        Supaya email benar-benar sampai ke Gmail, aktifkan Resend: set{" "}
-        <code>RESEND_API_KEY</code> dan <code>EMAIL_FROM</code> (dari domain
-        terverifikasi) di <code>apps/web/.env.local</code> dan Vercel.
+        Supaya email benar-benar terkirim ke Gmail, konfigurasi Gmail SMTP di{" "}
+        <code>apps/web/.env.local</code>: set <code>EMAIL_USER</code> dan{" "}
+        <code>EMAIL_APP_PASSWORD</code> (App Password Gmail). Baca petunjuk di
+        repo ini untuk cara membuatnya.
       </p>
     </Alert>
   );

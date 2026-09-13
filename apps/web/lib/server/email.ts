@@ -1,5 +1,8 @@
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM ?? "Traveltok AI <onboarding@resend.dev>";
+import nodemailer from "nodemailer";
+
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_APP_PASSWORD = process.env.EMAIL_APP_PASSWORD;
+const EMAIL_FROM = process.env.EMAIL_FROM ?? (EMAIL_USER ? `Traveltok AI <${EMAIL_USER}>` : undefined);
 
 interface SendMailParams {
   to: string;
@@ -10,38 +13,37 @@ interface SendMailParams {
 
 /**
  * Returns true when the email was dispatched to the provider. Returns false
- * (and logs the message so the flow stays usable in dev) when RESEND_API_KEY
- * is not configured.
+ * (and logs the message so the flow stays usable in dev) when Gmail SMTP is
+ * not configured.
  */
 async function sendMail(params: SendMailParams): Promise<boolean> {
-  if (!RESEND_API_KEY) {
+  if (!EMAIL_USER || !EMAIL_APP_PASSWORD) {
     // Local/dev fallback: log and report "not sent" instead of failing the flow.
-    console.warn("[email] RESEND_API_KEY is not set — email NOT delivered.");
+    console.warn("[email] EMAIL_USER / EMAIL_APP_PASSWORD not set — email NOT delivered.");
     console.log(
       `[email] To: ${params.to}\nSubject: ${params.subject}\nBody:\n${params.text}`,
     );
     return false;
   }
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_APP_PASSWORD,
     },
-    body: JSON.stringify({
-      from: EMAIL_FROM,
-      to: [params.to],
-      subject: params.subject,
-      text: params.text,
-      html: params.html,
-    }),
   });
 
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Email send failed (${res.status}): ${detail.slice(0, 300)}`);
-  }
+  await transporter.sendMail({
+    from: EMAIL_FROM ?? EMAIL_USER,
+    to: params.to,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+  });
   return true;
 }
 
