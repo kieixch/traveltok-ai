@@ -8,9 +8,10 @@ import { AuthLayout } from "@/components/AuthLayout";
 import { Alert, Button, Spinner } from "@/components/ui";
 
 export default function VerifyEmailPage() {
-  const [token] = useState(() =>
-    new URLSearchParams(window.location.search).get("token") ?? "",
-  );
+  const [token] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("token") ?? "";
+  });
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
 

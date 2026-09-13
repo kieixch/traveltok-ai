@@ -8,9 +8,10 @@ import { AuthLayout } from "@/components/AuthLayout";
 import { Alert, Button, Input, Label } from "@/components/ui";
 
 export default function ResetPasswordPage() {
-  const [token] = useState(() =>
-    new URLSearchParams(window.location.search).get("token") ?? "",
-  );
+  const [token] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("token") ?? "";
+  });
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
