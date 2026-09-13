@@ -178,12 +178,14 @@ export function Donut({
   centerValue,
   size = 176,
   thickness = 18,
+  formatValue,
 }: {
   segments: { label: string; value: number; color?: string }[];
   centerLabel?: string;
   centerValue?: string;
   size?: number;
   thickness?: number;
+  formatValue?: (value: number) => string;
 }) {
   const total = segments.reduce((s, seg) => s + seg.value, 0);
   const r = (size - thickness) / 2;
@@ -248,10 +250,14 @@ export function Donut({
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{ background: seg.color ?? COLORS[i % COLORS.length] }}
               />
-              <span className="truncate text-slate-700 dark:text-slate-300">{seg.label}</span>
+              <span className="line-clamp-2 text-slate-700 dark:text-slate-300">{seg.label}</span>
             </span>
-            <span className="tabular-nums text-slate-400 dark:text-slate-500">
-              {total > 0 ? Math.round((seg.value / total) * 100) : 0}%
+            <span className="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+              {formatValue
+                ? formatValue(seg.value)
+                : total > 0
+                  ? `${Math.round((seg.value / total) * 100)}%`
+                  : "0%"}
             </span>
           </li>
         ))}
@@ -276,7 +282,7 @@ export function ProgressList({
       {items.map((item, i) => (
         <div key={i}>
           <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-            <span className="truncate text-slate-700 dark:text-slate-300">{item.label}</span>
+            <span className="line-clamp-2 text-slate-700 dark:text-slate-300">{item.label}</span>
             <span className="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
               {format ? format(item.value) : item.value}
             </span>

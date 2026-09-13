@@ -164,6 +164,7 @@ function DashboardInner() {
                       }))}
                       centerValue={formatNumber(destinationTotal)}
                       centerLabel="videos"
+                      formatValue={(v) => `${formatNumber(v)} videos`}
                     />
                   ) : (
                     <p className="text-sm text-slate-400 dark:text-slate-500">
@@ -187,6 +188,7 @@ function DashboardInner() {
                   ) : topTopics.length > 0 ? (
                     <ProgressList
                       items={topTopics.map((t) => ({ label: t.topic, value: t.count }))}
+                      format={(v) => `${formatNumber(v)} videos`}
                     />
                   ) : (
                     <p className="text-sm text-slate-400 dark:text-slate-500">No topics yet.</p>
